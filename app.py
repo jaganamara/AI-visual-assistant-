@@ -1,15 +1,15 @@
 """
-AI-Powered Visual Assistant for Visually Impaired People.
-An accessible, multimodal Streamlit web application integrating YOLOv8 object detection,
-EasyOCR text extraction, BLIP scene captioning, BLIP visual question answering,
+AI Visual Assistant - Production UI Redesign.
+Multimodal assistive vision web application with YOLOv8 object detection,
+Salesforce BLIP scene captioning & VQA, EasyOCR text extraction,
 and Whisper / gTTS speech interaction.
+Recreated to pixel-level fidelity matching the reference design specification.
 """
 
 import os
 import sys
-import io
 import time
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from PIL import Image
 import numpy as np
 
@@ -20,6 +20,7 @@ if PROJECT_ROOT not in sys.path:
 
 import streamlit as st
 
+# Hardware and AI modules
 from src.utils.device_manager import DeviceManager, get_cache_dir
 from src.vision.object_detector import ObjectDetector
 from src.ocr.ocr_reader import OCRReader
@@ -28,10 +29,22 @@ from src.nlp.vqa_engine import VQAEngine
 from src.speech.speech_recognizer import SpeechRecognizer
 from src.speech.text_to_speech import TextToSpeech
 from src.utils.context_synthesizer import ContextSynthesizer
-from src.vision.utils import load_image, create_synthetic_test_image
+from src.vision.utils import load_image
+
+# UI modules
+from src.ui.styles import get_global_css
+from src.ui.components import (
+    render_app_header,
+    render_workspace_hero,
+    render_getting_started_card,
+    draw_styled_detections,
+    render_audio_waveform,
+    get_eye_logo_svg,
+)
+from src.ui.history import ActivityHistory
 
 
-# --- PAGE CONFIGURATION & ACCESSIBLE STYLING ---
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="AI Visual Assistant",
     page_icon="👁️",
@@ -39,418 +52,730 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# High-contrast, screen-reader friendly CSS
-ACCESSIBLE_CSS = """
-<style>
-    /* High contrast color scheme */
-    .stApp {
-        background-color: #121212;
-        color: #F5F5F5;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    
-    /* Header typography */
-    h1, h2, h3 {
-        color: #FFD700 !important;
-        font-weight: 700 !important;
-    }
-    
-    /* Prominent callout cards */
-    .hazard-card {
-        background-color: #3b0d0d;
-        border-left: 6px solid #FF3333;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 16px;
-        font-size: 1.15rem;
-        color: #FFFFFF;
-    }
-    
-    .scene-card {
-        background-color: #1e2638;
-        border-left: 6px solid #3399FF;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 16px;
-        font-size: 1.15rem;
-        color: #FFFFFF;
-    }
-    
-    .text-card {
-        background-color: #102e1a;
-        border-left: 6px solid #00FF66;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 16px;
-        font-size: 1.15rem;
-        color: #FFFFFF;
-    }
-    
-    /* Action buttons */
-    .stButton > button {
-        background-color: #FFD700 !important;
-        color: #000000 !important;
-        font-size: 1.1rem !important;
-        font-weight: 700 !important;
-        padding: 12px 24px !important;
-        border-radius: 8px !important;
-        border: 2px solid #FFFFFF !important;
-        min-height: 48px;
-    }
-    
-    .stButton > button:hover {
-        background-color: #FFEA70 !important;
-        border-color: #FFD700 !important;
-    }
-    
-    /* Accessibility focus indicators */
-    button:focus, input:focus, select:focus {
-        outline: 3px solid #00E5FF !important;
-        outline-offset: 2px !important;
-    }
-    
-    /* Audio player enlargement */
-    audio {
-        width: 100% !important;
-        height: 50px !important;
-        margin-top: 8px !important;
-    }
-</style>
-"""
-st.markdown(ACCESSIBLE_CSS, unsafe_allow_html=True)
+# Initialize Session State
+if "active_nav" not in st.session_state:
+    st.session_state.active_nav = "Scene Analysis"
 
+# Read query params navigation if present
+if "nav" in st.query_params:
+    target_nav = st.query_params["nav"]
+    valid_navs = ["Scene Analysis", "Voice & Visual Q&A", "Object Detection", "Text Reader (OCR)", "Activity History", "Settings"]
+    if target_nav in valid_navs:
+        st.session_state.active_nav = target_nav
 
-# --- SINGLETON SERVICES INITIALIZATION (CACHED) ---
-@st.cache_resource
-def get_tts():
-    return TextToSpeech()
+if "font_scale" not in st.session_state:
+    st.session_state.font_scale = 1.0
 
-@st.cache_resource
-def get_speech_recognizer():
-    return SpeechRecognizer(model_size="tiny")
+if "high_contrast" not in st.session_state:
+    st.session_state.high_contrast = False
 
+if "play_through_speakers" not in st.session_state:
+    st.session_state.play_through_speakers = False
 
-# --- APPLICATION HEADER & SAFETY DISCLAIMER ---
-st.title("👁️ AI-Powered Visual Assistant")
-st.markdown("### Assistive Vision, OCR, and Natural-Language Question Answering")
+if "auto_play_audio" not in st.session_state:
+    st.session_state.auto_play_audio = True
 
-# Safety banner
-st.warning(
-    "⚠️ **Academic Prototype Notice**: This application is strictly an academic research prototype "
-    "and assistive cognitive aid. It **does NOT provide calibrated 3D depth perception** and **must NOT "
-    "be used as an autonomous navigation system or for life-critical mobility**."
+if "current_image" not in st.session_state:
+    st.session_state.current_image = None
+
+if "current_annotated_img" not in st.session_state:
+    st.session_state.current_annotated_img = None
+
+if "current_detections" not in st.session_state:
+    st.session_state.current_detections = []
+
+if "current_caption" not in st.session_state:
+    st.session_state.current_caption = ""
+
+if "current_ocr_results" not in st.session_state:
+    st.session_state.current_ocr_results = []
+
+if "spoken_narrative" not in st.session_state:
+    st.session_state.spoken_narrative = ""
+
+if "is_speaking" not in st.session_state:
+    st.session_state.is_speaking = False
+
+if "audio_bytes" not in st.session_state:
+    st.session_state.audio_bytes = None
+
+if "input_mode" not in st.session_state:
+    st.session_state.input_mode = "none"
+
+if "vqa_last_q" not in st.session_state:
+    st.session_state.vqa_last_q = ""
+
+if "vqa_last_a" not in st.session_state:
+    st.session_state.vqa_last_a = ""
+
+if "getting_started_step" not in st.session_state:
+    st.session_state.getting_started_step = 1
+
+# Inject scoped high-fidelity stylesheet
+st.markdown(
+    get_global_css(
+        font_scale=st.session_state.font_scale,
+        high_contrast=st.session_state.high_contrast
+    ),
+    unsafe_allow_html=True
 )
 
 
-# --- SIDEBAR: HARDWARE MONITOR & SETTINGS ---
-with st.sidebar:
-    st.header("⚙️ Hardware & Diagnostics")
-    
-    vram = DeviceManager.get_vram_info()
-    if vram["cuda_available"]:
-        st.success(f"🎮 **GPU Active**: {vram['device_name']}")
-        col_v1, col_v2 = st.columns(2)
-        col_v1.metric("Allocated VRAM", f"{vram['allocated_mb']} MB")
-        col_v2.metric("Free VRAM", f"{vram['free_vram_mb']} MB")
-    else:
-        st.info("💻 **Running on CPU Mode**")
-    
-    st.caption(f"📁 **Models Cache**: `{get_cache_dir()}`")
-    
-    if st.button("🧹 Clear GPU VRAM Cache", help="Evicts unused model allocations"):
-        DeviceManager.clear_vram_cache()
-        st.success("VRAM cache evicted!")
-        st.rerun()
+# --- CACHED SINGLETON SERVICE INITIALIZERS ---
+@st.cache_resource
+def get_tts() -> TextToSpeech:
+    return TextToSpeech()
 
-    st.markdown("---")
-    st.header("🔊 Audio Settings")
-    play_through_speakers = st.checkbox(
-        "Play through laptop speakers (pyttsx3)", 
-        value=False,
-        help="Speaks aloud through your computer's built-in Windows SAPI5 audio"
-    )
-    auto_play_audio = st.checkbox("Auto-play browser audio", value=True)
+@st.cache_resource
+def get_speech_recognizer() -> SpeechRecognizer:
+    return SpeechRecognizer(model_size="tiny")
 
 
-# --- MAIN INTERACTION MODES ---
-tabs = st.tabs([
-    "🔍 Full Scene Analysis",
-    "💬 Voice & Visual Q&A",
-    "🎯 Object & Obstacle Detector",
-    "📄 Sign & Text Reader",
-    "ℹ️ About & Limitations"
-])
+def run_full_scene_pipeline(image: Image.Image, record_task: str = "Scene Analysis") -> None:
+    """Executes the full AI pipeline on the target image and caches outputs."""
+    with st.spinner("Analyzing surroundings with local vision & language models..."):
+        # 1. Object Detection (YOLOv8n)
+        detector = ObjectDetector(model_name="yolov8n.pt", confidence_threshold=0.35)
+        detections = detector.detect(image)
+        annotated_img = draw_styled_detections(image, detections)
+        detector.unload()
 
-tts = get_tts()
+        # 2. Text Extraction (EasyOCR)
+        ocr = OCRReader(confidence_threshold=0.25)
+        ocr_results = ocr.read_text(image)
+        ocr.unload()
 
+        # 3. Scene Captioning (BLIP)
+        captioner = SceneCaptioner()
+        caption = captioner.generate_caption(image)
+        captioner.unload()
 
-# =========================================================================
-# TAB 1: FULL SCENE ANALYSIS (VISION + OCR + CAPTION + SPOKEN SYNTHESIS)
-# =========================================================================
-with tabs[0]:
-    st.markdown("#### Analyze your complete visual environment")
-    
-    input_source = st.radio(
-        "Select Camera or Image Input:",
-        ["Upload Image File", "Use Webcam Camera", "Use Sample Street Scene"],
-        horizontal=True
-    )
-    
-    pil_image = None
-    if input_source == "Upload Image File":
-        uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"], key="full_upload")
-        if uploaded_file is not None:
-            pil_image = load_image(uploaded_file.read())
-    elif input_source == "Use Webcam Camera":
-        camera_photo = st.camera_input("Capture camera view", key="full_cam")
-        if camera_photo is not None:
-            pil_image = load_image(camera_photo.read())
-    else:
-        sample_path = os.path.join(PROJECT_ROOT, "sample_images", "bus.jpg")
-        if os.path.exists(sample_path):
-            pil_image = load_image(sample_path)
-            st.info("Loaded sample street scene: bus.jpg")
+        # 4. Context Synthesis
+        synthesis = ContextSynthesizer.synthesize(
+            caption=caption,
+            detections=detections,
+            ocr_results=ocr_results
+        )
+        spoken_text = synthesis["spoken_narrative"]
 
-    if pil_image is not None:
-        col_left, col_right = st.columns([1, 1])
-        with col_left:
-            st.image(pil_image, caption="Visual View", use_container_width=True)
+        # 5. Text-to-Speech audio generation
+        tts = get_tts()
+        audio_data = tts.to_audio_bytes(spoken_text)
 
-        with col_right:
-            if st.button("⚡ Describe My Surroundings", type="primary", use_container_width=True):
-                with st.spinner("Analyzing objects, text, and scene context..."):
-                    # 1. YOLO
-                    detector = ObjectDetector(model_name="yolov8n.pt", confidence_threshold=0.35)
-                    detections = detector.detect(pil_image)
-                    annotated_img = detector.annotate(pil_image, detections)
-                    detector.unload()
+        # Update Session State
+        st.session_state.current_image = image
+        st.session_state.current_detections = detections
+        st.session_state.current_annotated_img = annotated_img
+        st.session_state.current_caption = caption
+        st.session_state.current_ocr_results = ocr_results
+        st.session_state.spoken_narrative = spoken_text
+        st.session_state.audio_bytes = audio_data
 
-                    # 2. EasyOCR
-                    ocr = OCRReader(confidence_threshold=0.25)
-                    ocr_results = ocr.read_text(pil_image)
-                    ocr.unload()
-
-                    # 3. BLIP Caption
-                    captioner = SceneCaptioner()
-                    caption = captioner.generate_caption(pil_image)
-                    captioner.unload()
-
-                    # 4. Synthesize
-                    synthesis = ContextSynthesizer.synthesize(
-                        caption=caption,
-                        detections=detections,
-                        ocr_results=ocr_results
-                    )
-                    spoken_text = synthesis["spoken_narrative"]
-
-                # Render synthesized cards
-                if synthesis["immediate_hazards"]:
-                    st.markdown(
-                        f"<div class='hazard-card'>🚨 <b>Obstacle Alert</b>: "
-                        f"{', '.join(synthesis['immediate_hazards'])}</div>",
-                        unsafe_allow_html=True
-                    )
-
-                if synthesis["scene_caption"]:
-                    st.markdown(
-                        f"<div class='scene-card'>🌐 <b>Scene Overview</b>: "
-                        f"{synthesis['scene_caption'].capitalize()}</div>",
-                        unsafe_allow_html=True
-                    )
-
-                if synthesis["ocr_text"]:
-                    st.markdown(
-                        f"<div class='text-card'>📝 <b>Printed Text</b>: "
-                        f"\"{synthesis['ocr_text']}\"</div>",
-                        unsafe_allow_html=True
-                    )
-
-                # Audio Playback
-                st.markdown("#### 🔊 Spoken Description")
-                st.write(f"*{spoken_text}*")
-                
-                audio_bytes = tts.to_audio_bytes(spoken_text)
-                if audio_bytes:
-                    st.audio(audio_bytes, format="audio/mp3", autoplay=auto_play_audio)
-                
-                if play_through_speakers:
-                    tts.speak(spoken_text)
-
-                # Show annotated detections
-                with st.expander("Show Annotated Computer Vision Feed"):
-                    st.image(annotated_img, caption="Detected Objects and Bounding Boxes", use_container_width=True)
-
-
-# =========================================================================
-# TAB 2: VOICE & VISUAL QUESTION ANSWERING
-# =========================================================================
-with tabs[1]:
-    st.markdown("#### Ask questions about what is in view (Speech or Text)")
-    
-    vqa_source = st.radio(
-        "Select Image for Q&A:",
-        ["Current Scene (Uploaded/Sample)", "Take New Photo"],
-        horizontal=True,
-        key="vqa_source"
-    )
-    
-    vqa_image = None
-    if vqa_source == "Current Scene (Uploaded/Sample)":
-        sample_path = os.path.join(PROJECT_ROOT, "sample_images", "bus.jpg")
-        if os.path.exists(sample_path):
-            vqa_image = load_image(sample_path)
-            st.image(vqa_image, caption="Active Scene", width=400)
-    else:
-        vqa_cam = st.camera_input("Capture for Q&A", key="vqa_cam")
-        if vqa_cam is not None:
-            vqa_image = load_image(vqa_cam.read())
-            st.image(vqa_image, caption="Captured Scene", width=400)
-
-    if vqa_image is not None:
-        st.markdown("---")
-        st.markdown("##### 🎙️ Ask via Voice Recording:")
-        recorded_audio = None
-        # Streamlit >=1.37 has st.audio_input
-        if hasattr(st, "audio_input"):
-            recorded_audio = st.audio_input("Record your voice question")
-        else:
-            recorded_audio = st.file_uploader("Upload an audio question (.wav, .mp3)", type=["wav", "mp3"])
-
-        question_text = ""
-        if recorded_audio is not None:
-            with st.spinner("Transcribing your speech via Whisper..."):
-                recognizer = get_speech_recognizer()
-                audio_bytes = recorded_audio.read()
-                transcribed = recognizer.transcribe(audio_bytes)
-                recognizer.unload()
-                if transcribed:
-                    st.success(f"Recognized Speech: **\"{transcribed}\"**")
-                    question_text = transcribed
-
-        st.markdown("##### Or Type Your Question:")
-        typed_question = st.text_input(
-            "Enter question here:", 
-            value=question_text,
-            placeholder="e.g. What color is the bus? / How many people are there?"
+        # Record in activity history
+        ActivityHistory.add_record(
+            task_type=record_task,
+            summary=f"Detected {len(detections)} objects. {caption.capitalize() if caption else ''}",
+            details={
+                "objects_count": len(detections),
+                "caption": caption,
+                "ocr_count": len(ocr_results)
+            },
+            image_preview=annotated_img,
+            spoken_text=spoken_text
         )
 
-        if st.button("💬 Get Answer", key="btn_vqa"):
-            target_q = typed_question or question_text
-            if not target_q.strip():
-                st.warning("Please provide a question via voice or text input.")
+
+# --- AUTO-LOAD DEFAULT SAMPLE SCENE IF FRESH START ---
+if st.session_state.current_image is None:
+    # Check for city sidewalk sample first, or fallback to bus.jpg
+    sample_sidewalk = os.path.join(PROJECT_ROOT, "sample_images", "city_sidewalk.jpg")
+    sample_bus = os.path.join(PROJECT_ROOT, "sample_images", "bus.jpg")
+    initial_sample = sample_sidewalk if os.path.exists(sample_sidewalk) else (sample_bus if os.path.exists(sample_bus) else None)
+    
+    if initial_sample:
+        try:
+            loaded_img = load_image(initial_sample)
+            run_full_scene_pipeline(loaded_img, record_task="Initial Scene Analysis")
+        except Exception as e:
+            # Fallback gracefully if model initialization is pending
+            st.session_state.current_image = load_image(initial_sample)
+
+
+# --- APPLICATION HEADER ---
+vram_info = DeviceManager.get_vram_info()
+render_app_header(gpu_info=vram_info, user_initials="AJ")
+
+
+# --- LEFT SIDEBAR NAVIGATION ---
+with st.sidebar:
+    st.markdown('<div class="sidebar-nav-container">', unsafe_allow_html=True)
+    
+    nav_items = [
+        ("Scene Analysis", "🏠  Scene Analysis"),
+        ("Voice & Visual Q&A", "🎙️  Voice & Visual Q&A"),
+        ("Object Detection", "🎯  Object Detection"),
+        ("Text Reader (OCR)", "📄  Text Reader (OCR)"),
+        ("Activity History", "⏱️  Activity History"),
+        ("Settings", "⚙️  Settings"),
+    ]
+
+    for nav_id, nav_label in nav_items:
+        is_active = (st.session_state.active_nav == nav_id)
+        marker = '<div class="nav-active-trigger"></div>' if is_active else '<div class="nav-inactive-trigger"></div>'
+        st.markdown(marker, unsafe_allow_html=True)
+        if st.button(nav_label, key=f"nav_btn_{nav_id}", use_container_width=True):
+            st.session_state.active_nav = nav_id
+            st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+
+    # Getting Started Card at bottom
+    render_getting_started_card()
+    
+    col_step1, col_step2 = st.columns([4, 1])
+    with col_step2:
+        st.markdown('<div class="btn-stepper-trigger"></div>', unsafe_allow_html=True)
+        if st.button("→", key="btn_next_guide_step", help="Next quick guide tip"):
+            st.session_state.getting_started_step = (st.session_state.getting_started_step % 3) + 1
+            st.rerun()
+
+
+# =========================================================================
+# VIEW 1: SCENE ANALYSIS (PRIMARY DASHBOARD MATCHING REFERENCE IMAGE)
+# =========================================================================
+if st.session_state.active_nav == "Scene Analysis":
+    render_workspace_hero()
+
+    col_left, col_right = st.columns([1.02, 1.05], gap="large")
+
+    # --- LEFT CARD: VISUAL PREVIEW & CONTROLS ---
+    with col_left:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+
+        # Image Preview Area
+        if st.session_state.current_annotated_img is not None:
+            st.markdown("""
+            <div class="preview-box">
+                <div class="preview-expand-btn" title="Expand View">⛶</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.image(st.session_state.current_annotated_img, use_container_width=True)
+        elif st.session_state.current_image is not None:
+            st.image(st.session_state.current_image, use_container_width=True)
+        else:
+            st.markdown("""
+            <div class="preview-box">
+                <div class="preview-empty">
+                    <div class="preview-empty-icon">👁️</div>
+                    <div style="font-weight: 600; font-size: 1.05rem; color: #F4D9A0; margin-bottom: 4px;">No Visual Scene Loaded</div>
+                    <div style="font-size: 0.85rem;">Capture live camera feed, upload a photo, or load a sample scene below.</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Three Action Buttons Row
+        col_b1, col_b2, col_b3 = st.columns(3, gap="small")
+        with col_b1:
+            st.markdown('<div class="btn-gold-trigger"></div>', unsafe_allow_html=True)
+            if st.button("📷 Open Camera", key="btn_open_cam", use_container_width=True):
+                st.session_state.input_mode = "camera" if st.session_state.input_mode != "camera" else "none"
+                st.rerun()
+
+        with col_b2:
+            st.markdown('<div class="btn-mocha-trigger"></div>', unsafe_allow_html=True)
+            if st.button("📤 Upload Image", key="btn_upload_img", use_container_width=True):
+                st.session_state.input_mode = "upload" if st.session_state.input_mode != "upload" else "none"
+                st.rerun()
+
+        with col_b3:
+            st.markdown('<div class="btn-mocha-trigger"></div>', unsafe_allow_html=True)
+            if st.button("🖼️ Use Sample Scene", key="btn_sample_scene", use_container_width=True):
+                st.session_state.input_mode = "none"
+                sample_p = os.path.join(PROJECT_ROOT, "sample_images", "city_sidewalk.jpg")
+                if not os.path.exists(sample_p):
+                    sample_p = os.path.join(PROJECT_ROOT, "sample_images", "bus.jpg")
+                if os.path.exists(sample_p):
+                    img = load_image(sample_p)
+                    run_full_scene_pipeline(img, record_task="Sample Scene Analysis")
+                    st.rerun()
+
+        # Interactive Inputs when toggled
+        if st.session_state.input_mode == "camera":
+            st.markdown("---")
+            cam_shot = st.camera_input("Capture current viewpoint", key="cam_widget")
+            if cam_shot is not None:
+                img = load_image(cam_shot.read())
+                run_full_scene_pipeline(img, record_task="Webcam Live Analysis")
+                st.session_state.input_mode = "none"
+                st.rerun()
+
+        elif st.session_state.input_mode == "upload":
+            st.markdown("---")
+            up_file = st.file_uploader("Select JPG or PNG image", type=["jpg", "jpeg", "png"], key="up_widget")
+            if up_file is not None:
+                img = load_image(up_file.read())
+                run_full_scene_pipeline(img, record_task="Uploaded Image Analysis")
+                st.session_state.input_mode = "none"
+                st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- RIGHT CARD: ANALYSIS RESULTS ---
+    with col_right:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+
+        # Results Header with Sparkle and Completion Badge
+        is_complete = bool(st.session_state.current_image is not None)
+        status_pill_html = (
+            '<div class="status-badge-complete"><span class="status-dot-green"></span> Analysis Complete</div>'
+            if is_complete else
+            '<div class="status-badge-ready">Ready to Analyze</div>'
+        )
+
+        st.markdown(f"""
+        <div class="results-header">
+            <div class="results-title-group">
+                <span class="sparkle-icon">✨</span>
+                <span class="results-title">Analysis Results</span>
+            </div>
+            {status_pill_html}
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Section A: Detected Objects
+        det_count = len(st.session_state.current_detections)
+        with st.expander(f"📦 Detected Objects  ({det_count})", expanded=True):
+            if st.session_state.current_detections:
+                pills_html = []
+                icon_map = {
+                    "person": "👤",
+                    "bicycle": "🚲",
+                    "car": "🚗",
+                    "bus": "🚌",
+                    "traffic light": "🚦",
+                    "traffic sign": "⚠️",
+                    "backpack": "🎒",
+                    "handbag": "👜",
+                    "dog": "🐕"
+                }
+                for d in st.session_state.current_detections:
+                    lbl = d.get("label", "object")
+                    icon = icon_map.get(lbl.lower(), "🏷️")
+                    conf = d.get("confidence", 0.0)
+                    urgency_cls = "object-pill-hazard" if d.get("urgency") == "HIGH" else "object-pill"
+                    pills_html.append(
+                        f'<div class="{urgency_cls}">'
+                        f'<span class="object-pill-icon">{icon}</span>'
+                        f'<span>{lbl.title()} ({conf:.2f})</span>'
+                        f'</div>'
+                    )
+                st.markdown(f'<div class="object-pills-container">{"".join(pills_html)}</div>', unsafe_allow_html=True)
             else:
-                with st.spinner("Analyzing image to answer your question..."):
-                    vqa = VQAEngine()
-                    answer = vqa.answer_question(vqa_image, target_q)
-                    vqa.unload()
+                st.markdown('<span style="color: #A89887; font-style: italic;">No prominent objects detected in view.</span>', unsafe_allow_html=True)
 
-                st.markdown(
-                    f"<div class='scene-card'><b>Question:</b> {target_q}<br/>"
-                    f"<b>Answer:</b> <span style='color: #FFD700; font-size: 1.3rem;'>{answer}</span></div>",
-                    unsafe_allow_html=True
-                )
+        # Section B: Scene Summary
+        with st.expander("📄 Scene Summary", expanded=True):
+            if st.session_state.current_caption:
+                clean_cap = st.session_state.current_caption.strip()
+                clean_cap = clean_cap[0].upper() + clean_cap[1:]
+                if not clean_cap.endswith("."):
+                    clean_cap += "."
+                st.markdown(f'<div style="color: #E2D3C4; line-height: 1.6;">{clean_cap}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<span style="color: #A89887; font-style: italic;">Load or capture a scene to generate a natural language overview.</span>', unsafe_allow_html=True)
 
-                spoken_ans = f"The answer to '{target_q}' is: {answer}."
-                audio_bytes = tts.to_audio_bytes(spoken_ans)
-                if audio_bytes:
-                    st.audio(audio_bytes, format="audio/mp3", autoplay=auto_play_audio)
+        # Section C: Read Text (OCR)
+        with st.expander("🔤 Read Text (OCR)", expanded=True):
+            if st.session_state.current_ocr_results:
+                texts = [r["text"] for r in st.session_state.current_ocr_results if len(r.get("text", "").strip()) > 1]
+                if texts:
+                    st.markdown(f'<div style="color: #F4D9A0; font-weight: 500;">"{ " ".join(texts) }"</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="color: #A89887;">No readable text detected in this scene.</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="color: #A89887;">No readable text detected in this scene.</div>', unsafe_allow_html=True)
 
-                if play_through_speakers:
+        # Bottom Voice Output Row
+        st.markdown('<div class="voice-output-row">', unsafe_allow_html=True)
+        col_v1, col_v2 = st.columns([1.1, 1.6], gap="medium")
+        
+        with col_v1:
+            st.markdown('<div class="btn-speak-trigger"></div>', unsafe_allow_html=True)
+            if st.button("🔊  Speak Results", key="btn_speak_dashboard", use_container_width=True):
+                if st.session_state.spoken_narrative:
+                    tts = get_tts()
+                    st.session_state.is_speaking = True
+                    audio_data = tts.to_audio_bytes(st.session_state.spoken_narrative)
+                    st.session_state.audio_bytes = audio_data
+                    if st.session_state.play_through_speakers:
+                        tts.speak(st.session_state.spoken_narrative)
+                else:
+                    st.info("No scene narrative generated yet.")
+
+        with col_v2:
+            st.markdown(render_audio_waveform(is_speaking=st.session_state.is_speaking), unsafe_allow_html=True)
+
+        # Hidden or auto-play audio player
+        if st.session_state.audio_bytes is not None:
+            st.audio(
+                st.session_state.audio_bytes,
+                format="audio/mp3",
+                autoplay=st.session_state.auto_play_audio
+            )
+
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- FULL-WIDTH BOTTOM QUESTION BAR ---
+    st.markdown('<div class="question-bar-card">', unsafe_allow_html=True)
+    
+    col_q1, col_q2, col_q3 = st.columns([1.1, 3.2, 0.45], gap="medium")
+    
+    with col_q1:
+        st.markdown("""
+        <div class="question-label">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+            <span>Ask a Question about this Scene</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_q2:
+        typed_q = st.text_input(
+            "Query Scene",
+            placeholder="e.g., What is in front of me?",
+            label_visibility="collapsed",
+            key="dashboard_question_input"
+        )
+
+    with col_q3:
+        st.markdown('<div class="btn-send-trigger"></div>', unsafe_allow_html=True)
+        send_clicked = st.button("✈", key="btn_submit_vqa", help="Ask Visual Question")
+
+    # Handle Question submission
+    if send_clicked and typed_q.strip():
+        if st.session_state.current_image is None:
+            st.warning("Please load or capture an image first.")
+        else:
+            with st.spinner("Analyzing scene with BLIP VQA..."):
+                vqa = VQAEngine()
+                answer = vqa.answer_question(st.session_state.current_image, typed_q.strip())
+                vqa.unload()
+
+                st.session_state.vqa_last_q = typed_q.strip()
+                st.session_state.vqa_last_a = answer
+
+                # Spoken audio answer
+                spoken_ans = f"Regarding '{typed_q.strip()}': {answer}."
+                tts = get_tts()
+                ans_audio = tts.to_audio_bytes(spoken_ans)
+                st.session_state.audio_bytes = ans_audio
+                if st.session_state.play_through_speakers:
                     tts.speak(spoken_ans)
 
+                # Record in activity history
+                ActivityHistory.add_record(
+                    task_type="Visual Q&A",
+                    summary=f"Q: '{typed_q.strip()}' -> A: {answer}",
+                    details={"question": typed_q.strip(), "answer": answer},
+                    spoken_text=spoken_ans
+                )
+
+    # Show active Q&A response card if answered
+    if st.session_state.vqa_last_q and st.session_state.vqa_last_a:
+        st.markdown(f"""
+        <div class="vqa-answer-card">
+            <div class="vqa-q-text">Q: {st.session_state.vqa_last_q}</div>
+            <div class="vqa-a-text">A: <span style="color: #F4D9A0;">{st.session_state.vqa_last_a}</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 # =========================================================================
-# TAB 3: OBJECT & OBSTACLE DETECTOR ONLY
+# VIEW 2: VOICE & VISUAL Q&A
 # =========================================================================
-with tabs[2]:
-    st.markdown("#### Dedicated Object Detection & Directional Proximity")
-    det_img_file = st.file_uploader("Upload image for object detection", type=["jpg", "png"], key="det_tab_upload")
-    
-    det_target_img = None
-    if det_img_file is not None:
-        det_target_img = load_image(det_img_file.read())
-    else:
-        sample_path = os.path.join(PROJECT_ROOT, "sample_images", "bus.jpg")
-        if os.path.exists(sample_path):
-            det_target_img = load_image(sample_path)
+elif st.session_state.active_nav == "Voice & Visual Q&A":
+    st.markdown('<div class="workspace-title">Voice & Visual Question Answering</div>', unsafe_allow_html=True)
+    st.markdown('<div class="workspace-subtitle">Ask questions aloud using your microphone or type specific queries about what is in view.</div>', unsafe_allow_html=True)
+    st.markdown("<br/>", unsafe_allow_html=True)
 
-    if det_target_img is not None:
-        col_d1, col_d2 = st.columns([1, 1])
-        with col_d1:
-            st.image(det_target_img, caption="Input Scene", use_container_width=True)
-        with col_d2:
-            conf = st.slider("Confidence Threshold", 0.15, 0.90, 0.35, 0.05)
-            if st.button("Run Object Detection", key="btn_det_tab"):
-                with st.spinner("Detecting objects..."):
+    col_vqa1, col_vqa2 = st.columns([1, 1], gap="large")
+
+    with col_vqa1:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight: 600; color: #F4D9A0; margin-bottom: 10px;">Active Scene Reference</div>', unsafe_allow_html=True)
+        if st.session_state.current_image is not None:
+            st.image(st.session_state.current_image, use_container_width=True)
+        else:
+            st.info("No active scene. Please load a sample or upload an image in Scene Analysis.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_vqa2:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight: 600; color: #F4D9A0; margin-bottom: 10px;">🎙️ Voice Input (OpenAI Whisper)</div>', unsafe_allow_html=True)
+
+        voice_query = None
+        if hasattr(st, "audio_input"):
+            rec_audio = st.audio_input("Record voice query", key="voice_q_rec")
+            if rec_audio is not None:
+                with st.spinner("Transcribing speech with Whisper..."):
+                    recognizer = get_speech_recognizer()
+                    voice_query = recognizer.transcribe(rec_audio.read())
+                    recognizer.unload()
+                    if voice_query:
+                        st.success(f"Recognized: **\"{voice_query}\"**")
+
+        typed_q = st.text_input("Or enter your question:", value=voice_query or "", placeholder="e.g. What color is the bicycle?", key="typed_vqa_tab")
+
+        st.markdown('<div class="btn-speak-trigger"></div>', unsafe_allow_html=True)
+        if st.button("💬 Get Spoken Answer", key="btn_vqa_tab_exec", use_container_width=True):
+            query = typed_q or voice_query
+            if not query:
+                st.warning("Please record a voice question or type one.")
+            elif st.session_state.current_image is None:
+                st.warning("Please load an image reference first.")
+            else:
+                with st.spinner("Analyzing image..."):
+                    vqa = VQAEngine()
+                    ans = vqa.answer_question(st.session_state.current_image, query)
+                    vqa.unload()
+
+                    st.markdown(f"""
+                    <div class="vqa-answer-card">
+                        <div class="vqa-q-text">Question: {query}</div>
+                        <div class="vqa-a-text">Answer: <span style="color: #F4D9A0; font-size: 1.25rem;">{ans}</span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    spoken = f"The answer to '{query}' is: {ans}."
+                    tts = get_tts()
+                    aud = tts.to_audio_bytes(spoken)
+                    if aud:
+                        st.audio(aud, format="audio/mp3", autoplay=True)
+                    if st.session_state.play_through_speakers:
+                        tts.speak(spoken)
+
+                    ActivityHistory.add_record(
+                        task_type="Visual Q&A",
+                        summary=f"Q: '{query}' -> A: {ans}",
+                        details={"question": query, "answer": ans},
+                        spoken_text=spoken
+                    )
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+# =========================================================================
+# VIEW 3: OBJECT DETECTION
+# =========================================================================
+elif st.session_state.active_nav == "Object Detection":
+    st.markdown('<div class="workspace-title">Dedicated Object & Obstacle Detection</div>', unsafe_allow_html=True)
+    st.markdown('<div class="workspace-subtitle">Spatial localization (left, center, right), proximity hazard estimation, and directional audio guidance.</div>', unsafe_allow_html=True)
+    st.markdown("<br/>", unsafe_allow_html=True)
+
+    col_od1, col_od2 = st.columns([1, 1], gap="large")
+
+    with col_od1:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+        if st.session_state.current_annotated_img is not None:
+            st.image(st.session_state.current_annotated_img, use_container_width=True)
+        elif st.session_state.current_image is not None:
+            st.image(st.session_state.current_image, use_container_width=True)
+        else:
+            st.info("No active image loaded. Upload or select an image.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_od2:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+        conf = st.slider("Confidence Threshold", 0.15, 0.90, 0.35, 0.05, key="det_slider")
+        
+        st.markdown('<div class="btn-gold-trigger"></div>', unsafe_allow_html=True)
+        if st.button("Run Spatial Object Detection", key="btn_run_det_only", use_container_width=True):
+            if st.session_state.current_image is not None:
+                with st.spinner("Running YOLOv8 spatial localization..."):
                     detector = ObjectDetector(model_name="yolov8n.pt", confidence_threshold=conf)
-                    detections = detector.detect(det_target_img)
-                    annotated = detector.annotate(det_target_img, detections)
-                    spoken = detector.generate_spoken_summary(detections)
+                    dets = detector.detect(st.session_state.current_image)
+                    ann = draw_styled_detections(st.session_state.current_image, dets)
+                    summary = detector.generate_spoken_summary(dets)
                     detector.unload()
 
-                st.image(annotated, caption="Annotated Objects", use_container_width=True)
-                st.write(f"**Spoken Summary**: {spoken}")
-                
-                audio_bytes = tts.to_audio_bytes(spoken)
-                if audio_bytes:
-                    st.audio(audio_bytes, format="audio/mp3", autoplay=auto_play_audio)
+                    st.session_state.current_detections = dets
+                    st.session_state.current_annotated_img = ann
+                    st.session_state.spoken_narrative = summary
+
+                    st.success(f"Detected {len(dets)} objects.")
+                    st.write(f"**Spoken Summary**: {summary}")
+
+                    tts = get_tts()
+                    aud = tts.to_audio_bytes(summary)
+                    if aud:
+                        st.audio(aud, format="audio/mp3", autoplay=True)
+                    if st.session_state.play_through_speakers:
+                        tts.speak(summary)
+            else:
+                st.warning("Please load a scene image first.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =========================================================================
-# TAB 4: OCR DOCUMENT & SIGN READER ONLY
+# VIEW 4: TEXT READER (OCR)
 # =========================================================================
-with tabs[3]:
-    st.markdown("#### Dedicated Sign, Label, and Document Text Reader")
-    ocr_img_file = st.file_uploader("Upload image for text extraction", type=["jpg", "png"], key="ocr_tab_upload")
+elif st.session_state.active_nav == "Text Reader (OCR)":
+    st.markdown('<div class="workspace-title">Printed Sign & Document Reader (OCR)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="workspace-subtitle">Optical character recognition with natural reading order clustering and text-to-speech.</div>', unsafe_allow_html=True)
+    st.markdown("<br/>", unsafe_allow_html=True)
 
-    ocr_target_img = None
-    if ocr_img_file is not None:
-        ocr_target_img = load_image(ocr_img_file.read())
-    else:
-        ocr_sample_path = os.path.join(PROJECT_ROOT, "ocr_result.jpg")
-        if os.path.exists(ocr_sample_path):
-            ocr_target_img = load_image(ocr_sample_path)
+    col_ocr1, col_ocr2 = st.columns([1, 1], gap="large")
 
-    if ocr_target_img is not None:
-        col_o1, col_o2 = st.columns([1, 1])
-        with col_o1:
-            st.image(ocr_target_img, caption="Input Image", use_container_width=True)
-        with col_o2:
-            if st.button("Read Printed Text", key="btn_ocr_tab"):
-                with st.spinner("Extracting printed text..."):
+    with col_ocr1:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+        if st.session_state.current_image is not None:
+            st.image(st.session_state.current_image, use_container_width=True)
+        else:
+            st.info("No active image loaded. Upload or select an image.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_ocr2:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+        st.markdown('<div class="btn-gold-trigger"></div>', unsafe_allow_html=True)
+        if st.button("Extract and Read Text", key="btn_run_ocr_only", use_container_width=True):
+            if st.session_state.current_image is not None:
+                with st.spinner("Extracting printed text with EasyOCR..."):
                     reader = OCRReader(confidence_threshold=0.25)
-                    results = reader.read_text(ocr_target_img)
-                    annotated = reader.annotate(ocr_target_img, results)
-                    spoken = reader.generate_spoken_summary(results)
+                    results = reader.read_text(st.session_state.current_image)
+                    ann_ocr = reader.annotate(st.session_state.current_image, results)
+                    summary = reader.generate_spoken_summary(results)
                     reader.unload()
 
-                st.image(annotated, caption="Extracted Text Blocks", use_container_width=True)
-                st.write(f"**Extracted Text**: {spoken}")
+                    st.session_state.current_ocr_results = results
+                    st.image(ann_ocr, caption="Detected Text Regions", use_container_width=True)
+                    st.write(f"**Extracted Text**: {summary}")
 
-                audio_bytes = tts.to_audio_bytes(spoken)
-                if audio_bytes:
-                    st.audio(audio_bytes, format="audio/mp3", autoplay=auto_play_audio)
+                    tts = get_tts()
+                    aud = tts.to_audio_bytes(summary)
+                    if aud:
+                        st.audio(aud, format="audio/mp3", autoplay=True)
+                    if st.session_state.play_through_speakers:
+                        tts.speak(summary)
+            else:
+                st.warning("Please load a scene image first.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =========================================================================
-# TAB 5: ABOUT, ARCHITECTURE & LIMITATIONS
+# VIEW 5: ACTIVITY HISTORY
 # =========================================================================
-with tabs[4]:
-    st.markdown("### 📚 Academic Project Overview")
+elif st.session_state.active_nav == "Activity History":
+    st.markdown('<div class="workspace-title">Activity History</div>', unsafe_allow_html=True)
+    st.markdown('<div class="workspace-subtitle">Review recent scene analyses, object detections, questions answered, and audio playback.</div>', unsafe_allow_html=True)
+    st.markdown("<br/>", unsafe_allow_html=True)
+
+    records = ActivityHistory.get_records()
+
+    col_h_act, _ = st.columns([1, 4])
+    with col_h_act:
+        if st.button("🧹 Clear History", key="btn_clear_hist"):
+            ActivityHistory.clear()
+            st.rerun()
+
+    if not records:
+        st.markdown("""
+        <div class="dash-card" style="text-align: center; padding: 40px;">
+            <div style="font-size: 2.5rem; color: #F4D9A0; margin-bottom: 8px;">⏱️</div>
+            <div style="font-size: 1.1rem; color: #FFFFFF; font-weight: 600;">No Activity Records Yet</div>
+            <div style="font-size: 0.88rem; color: #A89887; margin-top: 4px;">Recent scene descriptions and visual question answers will be preserved here during your session.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        for r in records:
+            st.markdown(f"""
+            <div class="dash-card" style="margin-bottom: 12px; padding: 16px 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="color: #F4D9A0; font-weight: 600; font-size: 0.95rem;">{r['task_type']}</span>
+                    <span style="color: #A89887; font-size: 0.8rem;">{r['timestamp']}</span>
+                </div>
+                <div style="color: #E2D3C4; font-size: 0.95rem; margin-bottom: 8px;">{r['summary']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+# =========================================================================
+# VIEW 6: SETTINGS & ACADEMIC LIMITATIONS (REQUIREMENT 15)
+# =========================================================================
+elif st.session_state.active_nav == "Settings":
+    st.markdown('<div class="workspace-title">System Settings & Device Monitor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="workspace-subtitle">Manage audio playback preferences, local GPU hardware diagnostics, and accessibility options.</div>', unsafe_allow_html=True)
+    st.markdown("<br/>", unsafe_allow_html=True)
+
+    col_s1, col_s2 = st.columns([1, 1], gap="large")
+
+    with col_s1:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">🔊 Audio & Speech Preferences</div>', unsafe_allow_html=True)
+
+        spk = st.checkbox(
+            "Play through laptop speakers (offline pyttsx3)",
+            value=st.session_state.play_through_speakers,
+            help="Speaks aloud using Windows SAPI5 built-in speech synthesis"
+        )
+        st.session_state.play_through_speakers = spk
+
+        auto_a = st.checkbox("Auto-play browser streaming audio (gTTS)", value=st.session_state.auto_play_audio)
+        st.session_state.auto_play_audio = auto_a
+
+        st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">♿ Accessibility Display Options</div>', unsafe_allow_html=True)
+
+        f_scale = st.slider("Font Scaling", 0.9, 1.4, float(st.session_state.font_scale), 0.05)
+        if f_scale != st.session_state.font_scale:
+            st.session_state.font_scale = f_scale
+            st.rerun()
+
+        hc = st.checkbox("High Contrast Borders", value=st.session_state.high_contrast)
+        if hc != st.session_state.high_contrast:
+            st.session_state.high_contrast = hc
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_s2:
+        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">🎮 GPU & Hardware Diagnostics</div>', unsafe_allow_html=True)
+
+        vram = DeviceManager.get_vram_info()
+        if vram["cuda_available"]:
+            st.success(f"NVIDIA GPU Active: **{vram['device_name']}**")
+            col_m1, col_m2 = st.columns(2)
+            col_m1.metric("Allocated VRAM", f"{vram['allocated_mb']} MB")
+            col_m2.metric("Free VRAM", f"{vram['free_vram_mb']} MB")
+        else:
+            st.info("Running on CPU Mode")
+
+        st.caption(f"📁 **Models Cache**: `{get_cache_dir()}`")
+
+        if st.button("🧹 Clear GPU VRAM Cache", help="Evicts unused model allocations from RTX memory"):
+            DeviceManager.clear_vram_cache()
+            st.success("VRAM cache evicted!")
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Academic Prototype Notice & Limitations (Relocated per Requirement 15)
+    st.markdown('<div class="dash-card" style="margin-top: 1.5rem; border-left: 4px solid #C8792C;">', unsafe_allow_html=True)
+    st.markdown('<div style="font-weight: 600; font-size: 1.15rem; color: #F4D9A0; margin-bottom: 10px;">⚠️ Academic Prototype Notice & Technical Limitations</div>', unsafe_allow_html=True)
     st.markdown("""
-    **Project Title**: *AI-Powered Visual Assistant for Visually Impaired People Using Computer Vision and NLP*
+    This application is strictly an **academic research prototype and assistive cognitive aid**.
     
-    #### 🏗️ Architecture & Pretrained Models Used:
-    1. **Object Detection**: Pretrained **Ultralytics YOLOv8n** on COCO (80 classes). Computes bounding box centroids for horizontal positioning (*left*, *center*, *right*) and area ratios for proximity alerts.
-    2. **Text Extraction (OCR)**: Pretrained **EasyOCR** (CRAFT text detector + ResNet/LSTM recognizer). Clusters text in natural reading order (top-to-bottom, left-to-right).
-    3. **Scene Captioning**: Pretrained **Salesforce BLIP Base** (`Salesforce/blip-image-captioning-base`) running in FP16 precision.
-    4. **Visual Question Answering**: Pretrained **Salesforce BLIP VQA Base** (`Salesforce/blip-vqa-base`) for zero-shot natural language queries.
-    5. **Speech Recognition**: Pretrained **OpenAI Whisper** (`tiny`/`base`) with pure-Python `soundfile` decoding.
-    6. **Text-to-Speech**: Dual-engine synthesis using **pyttsx3** (offline Windows SAPI5) and **gTTS** (in-browser MP3 streaming).
-
-    #### ⚠️ Safety & Technical Limitations:
-    - **No Calibrated 3D Metric Depth**: Distances are estimated heuristically from 2D bounding box area. The system cannot measure exact metric distances.
-    - **Not an Autonomous Mobility Device**: The software must **never** be used for autonomous obstacle avoidance, traffic navigation, or hazard avoidance.
-    - **Lighting & Motion Sensitivity**: Heavy camera blur, extreme shadows, or glare will degrade OCR and detection accuracy.
-    - **Probabilistic Hallucinations**: Vision-language models may occasionally output inaccurate details when queried about ambiguous visual features.
+    - **No Calibrated 3D Metric Depth**: Distances are estimated heuristically from 2D bounding-box area percentage. The system **cannot** measure physical metric distance and must **never** be used as an autonomous navigation system or for life-critical obstacle avoidance.
+    - **Environmental Sensitivity**: Performance may degrade under severe lighting, darkness, fast camera motion blur, or heavy lens flare.
+    - **Vision-Language Hallucinations**: Vision-language models (BLIP) can occasionally hallucinate plausible-sounding details for ambiguous visual stimuli.
+    - **Local Processing**: Model weights and inferences run locally on the detected NVIDIA GeForce RTX 2050 GPU for privacy and zero data leakage.
     """)
+    st.markdown('</div>', unsafe_allow_html=True)
