@@ -1,0 +1,42 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Deep Learning Models and Checkpoints
+models_cache/
+*.pt
+*.pth
+*.bin
+*.onnx
+*.safetensors
+*.engine
+
+# Datasets and Temp Media
+runs/
+*.mp3
+*.wav
+*.m4a
+temp_audio/
+recordings/
+
+# Environment Variables and Secrets
+.env
+*.local
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

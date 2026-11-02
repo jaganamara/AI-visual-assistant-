@@ -1,0 +1,31 @@
+# AI-Powered Visual Assistant for Visually Impaired People
+# Verified Dependencies for Python 3.12 on Windows with NVIDIA CUDA 12.4
+
+# PyTorch with CUDA 12.4 GPU acceleration
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+
+# Computer Vision & Object Detection
+ultralytics>=8.2.0
+opencv-python-headless>=4.8.0
+pillow>=10.0.0
+numpy>=1.24.0
+
+# Optical Character Recognition (OCR)
+easyocr>=1.7.2
+
+# Vision-Language Models & NLP
+transformers>=4.40.0
+accelerate>=0.30.0
+
+# Speech Recognition & Speech Synthesis (STT & TTS)
+openai-whisper>=20231117
+pyttsx3>=2.90
+gtts>=2.5.0
+soundfile>=0.12.0
+scipy>=1.11.0
+
+# Presentation Layer & Automated Testing
+streamlit>=1.37.0
+pytest>=8.0.0
