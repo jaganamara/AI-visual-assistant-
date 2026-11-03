@@ -77,13 +77,56 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         color: var(--color-text-secondary) !important;
     }}
 
-    /* Clean Streamlit Default Header */
+    /* Clean Streamlit Default Header - Keep Collapsed Toggle Accessible */
     header[data-testid="stHeader"] {{
         background: transparent !important;
-        height: 0px !important;
+        height: auto !important;
         min-height: 0px !important;
         padding: 0 !important;
-        visibility: hidden !important;
+        z-index: 99990 !important;
+        pointer-events: none !important;
+    }}
+
+    /* Hide Streamlit default right toolbar (Deploy, Menu, etc.) */
+    [data-testid="stToolbar"] {{
+        display: none !important;
+    }}
+
+    /* Sidebar Collapsed Control: Highly visible Champagne Gold floating toggle */
+    [data-testid="stSidebarCollapsedControl"] {{
+        pointer-events: auto !important;
+        display: flex !important;
+        visibility: visible !important;
+        position: fixed !important;
+        top: 14px !important;
+        left: 14px !important;
+        z-index: 999999 !important;
+        background: #281C13 !important;
+        border: 1.5px solid #F4D9A0 !important;
+        border-radius: 8px !important;
+        color: #F4D9A0 !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        width: 40px !important;
+        height: 40px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+    }}
+
+    [data-testid="stSidebarCollapsedControl"]:hover {{
+        background: #3D2B1D !important;
+        border-color: #FFFFFF !important;
+        color: #FFFFFF !important;
+        transform: scale(1.06) !important;
+        box-shadow: 0 6px 20px rgba(244, 217, 160, 0.3) !important;
+    }}
+
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="stSidebarCollapsedControl"] svg {{
+        color: #F4D9A0 !important;
+        stroke: #F4D9A0 !important;
+        fill: none !important;
     }}
 
     /* Main Container Padding */
@@ -337,6 +380,29 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         background-color: #2ED573;
         box-shadow: 0 0 8px #2ED573;
         display: inline-block;
+    }}
+
+    .header-menu-btn {{
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        background: rgba(40, 28, 19, 0.7);
+        border: 1px solid rgba(244, 217, 160, 0.25);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-gold);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 0;
+        margin-right: 8px;
+    }}
+
+    .header-menu-btn:hover {{
+        background: rgba(60, 42, 29, 0.85);
+        border-color: var(--color-gold);
+        color: #FFFFFF;
+        transform: scale(1.05);
     }}
 
     .header-icon-btn {{

@@ -105,7 +105,7 @@ if "getting_started_step" not in st.session_state:
 
 # Handle Query Parameters for Seamless Navigation
 if "nav" in st.query_params:
-    target_nav = st.query_params["nav"]
+    raw_nav = str(st.query_params.get("nav", "")).replace("+", " ").strip()
     valid_navs = [
         "Scene Analysis",
         "Voice & Visual Q&A",
@@ -114,8 +114,12 @@ if "nav" in st.query_params:
         "Activity History",
         "Settings",
     ]
-    if target_nav in valid_navs:
-        st.session_state.active_nav = target_nav
+    if raw_nav in valid_navs:
+        st.session_state.active_nav = raw_nav
+    try:
+        del st.query_params["nav"]
+    except Exception:
+        pass
 
 if "guide_step" in st.query_params:
     try:

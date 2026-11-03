@@ -29,8 +29,13 @@ def get_nvidia_logo_svg(width: int = 16, height: int = 16) -> str:
 
 def render_app_header(gpu_info: Dict[str, Any], user_initials: str = "AJ") -> None:
     """
-    Renders the clean, top application header.
-    Uses st.html to guarantee zero markdown-induced syntax glitches or raw strings.
+    Renders the clean, top application header with:
+    - Sidebar toggle button (accessible everywhere)
+    - AI Visual Assistant branding & logo
+    - Local Processing & GPU hardware indicators
+    - Active Activity History & Notifications button
+    - Active Application Settings button
+    - User avatar
     """
     if gpu_info.get("cuda_available", False):
         device_name = gpu_info.get("device_name", "GPU")
@@ -42,11 +47,21 @@ def render_app_header(gpu_info: Dict[str, Any], user_initials: str = "AJ") -> No
 
     eye_svg = get_eye_logo_svg(40, 40)
     nvidia_svg = get_nvidia_logo_svg(16, 16)
+    
+    # Hamburger menu toggle SVG
+    menu_svg = (
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+        '<line x1="3" y1="12" x2="21" y2="12"></line>'
+        '<line x1="3" y1="6" x2="21" y2="6"></line>'
+        '<line x1="3" y1="18" x2="21" y2="18"></line>'
+        '</svg>'
+    )
 
     # Clean, minified HTML with zero indented code blocks
     header_html = (
         '<div class="app-header-container">'
         '<div class="app-brand">'
+        f'<button type="button" class="header-menu-btn" onclick="const c = document.querySelector(\'[data-testid=\\\'stSidebarCollapsedControl\\\'] button\') || document.querySelector(\'[data-testid=\\\'stSidebarCollapsedControl\\\']\') || (window.parent && window.parent.document.querySelector(\'[data-testid=\\\'stSidebarCollapsedControl\\\'] button\')); if (c) c.click(); const exp = document.querySelector(\'[data-testid=\\\'stSidebarCollapseButton\\\'] button\') || (window.parent && window.parent.document.querySelector(\'[data-testid=\\\'stSidebarCollapseButton\\\'] button\')); if (!c && exp) exp.click();" title="Toggle Navigation Sidebar">{menu_svg}</button>'
         f'<div class="app-logo-eye">{eye_svg}</div>'
         '<div class="app-title-group">'
         '<span class="app-title">AI Visual Assistant</span>'
@@ -62,14 +77,14 @@ def render_app_header(gpu_info: Dict[str, Any], user_initials: str = "AJ") -> No
         f'{nvidia_svg}'
         f'<span style="color: #F4D9A0; font-weight: 600;">{gpu_display}</span>'
         '</div>'
-        '<a href="/?nav=Activity+History" target="_self" class="header-icon-btn" title="Activity History &amp; Notifications">'
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<a href="?nav=Activity+History" target="_self" class="header-icon-btn" title="Activity History &amp; Notifications">'
+        '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
         '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>'
         '<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>'
         '</svg>'
         '</a>'
-        '<a href="/?nav=Settings" target="_self" class="header-icon-btn" title="Application Settings">'
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<a href="?nav=Settings" target="_self" class="header-icon-btn" title="Application Settings">'
+        '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
         '<circle cx="12" cy="12" r="3"></circle>'
         '<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>'
         '</svg>'
