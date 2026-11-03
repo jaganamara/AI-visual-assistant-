@@ -80,53 +80,37 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
     /* Clean Streamlit Default Header - Keep Collapsed Toggle Accessible */
     header[data-testid="stHeader"] {{
         background: transparent !important;
-        height: auto !important;
+        height: 0px !important;
         min-height: 0px !important;
         padding: 0 !important;
         z-index: 99990 !important;
         pointer-events: none !important;
     }}
 
-    /* Hide Streamlit default right toolbar (Deploy, Menu, etc.) */
+    /* Keep Streamlit toolbar active in background so stExpandSidebarButton is mounted */
     [data-testid="stToolbar"] {{
+        background: transparent !important;
+        pointer-events: none !important;
+    }}
+
+    /* Hide Streamlit default right toolbar (Deploy, Menu, Status) */
+    [data-testid="stToolbarActions"],
+    [data-testid="stMainMenu"],
+    [data-testid="stStatusWidget"],
+    .stDeployButton {{
         display: none !important;
     }}
 
-    /* Sidebar Collapsed Control: Highly visible Champagne Gold floating toggle */
-    [data-testid="stSidebarCollapsedControl"] {{
-        pointer-events: auto !important;
-        display: flex !important;
-        visibility: visible !important;
+    /* Position native expand button transparently so it can be triggered reliably */
+    [data-testid="stExpandSidebarButton"] {{
         position: fixed !important;
         top: 14px !important;
         left: 14px !important;
-        z-index: 999999 !important;
-        background: #281C13 !important;
-        border: 1.5px solid #F4D9A0 !important;
-        border-radius: 8px !important;
-        color: #F4D9A0 !important;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        width: 40px !important;
-        height: 40px !important;
-        align-items: center !important;
-        justify-content: center !important;
-        cursor: pointer !important;
-    }}
-
-    [data-testid="stSidebarCollapsedControl"]:hover {{
-        background: #3D2B1D !important;
-        border-color: #FFFFFF !important;
-        color: #FFFFFF !important;
-        transform: scale(1.06) !important;
-        box-shadow: 0 6px 20px rgba(244, 217, 160, 0.3) !important;
-    }}
-
-    [data-testid="stSidebarCollapsedControl"] button,
-    [data-testid="stSidebarCollapsedControl"] svg {{
-        color: #F4D9A0 !important;
-        stroke: #F4D9A0 !important;
-        fill: none !important;
+        z-index: 99999 !important;
+        opacity: 0 !important;
+        width: 42px !important;
+        height: 42px !important;
+        pointer-events: auto !important;
     }}
 
     /* Main Container Padding */
@@ -318,11 +302,16 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
     }}
 
     .app-logo-eye {{
-        width: 44px;
-        height: 44px;
-        display: flex;
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 48 48' fill='none'%3E%3Cpath d='M4 24C4 24 11.5 10 24 10C36.5 10 44 24 44 24C44 24 36.5 38 24 38C11.5 38 4 24 4 24Z' stroke='%23F4D9A0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='24' r='8' stroke='%23F4D9A0' stroke-width='2.5'/%3E%3Ccircle cx='24' cy='24' r='3.5' fill='%23F4D9A0'/%3E%3Cpath d='M12 18C15 13 20 11 24 11' stroke='%23F4D9A0' stroke-width='1.5' stroke-linecap='round' opacity='0.6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
     }}
 
     .app-title-group {{
@@ -382,49 +371,96 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         display: inline-block;
     }}
 
+    .header-nvidia-icon {{
+        width: 16px;
+        height: 16px;
+        display: inline-block;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M9.5 7.5C11.5 5.5 14.5 5.5 16.5 7.5C18.5 9.5 18.5 12.5 16.5 14.5L12 19L7.5 14.5C6.5 13.5 6 12 6 10.5' stroke='%2376B900' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='11' r='3' fill='%2376B900'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+        margin-right: 4px;
+        vertical-align: middle;
+    }}
+
     .header-menu-btn {{
-        width: 38px;
-        height: 38px;
-        border-radius: 8px;
-        background: rgba(40, 28, 19, 0.7);
-        border: 1px solid rgba(244, 217, 160, 0.25);
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 10px;
+        background: #281C13;
+        border: 1.5px solid #F4D9A0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #F4D9A0;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 0;
+        margin-right: 12px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+        user-select: none;
+    }}
+
+    .header-menu-btn:hover {{
+        background: #3D2B1D;
+        border-color: #FFFFFF;
+        color: #FFFFFF;
+        transform: scale(1.06);
+        box-shadow: 0 6px 20px rgba(244, 217, 160, 0.35);
+    }}
+
+    .menu-icon-symbol {{
+        font-size: 22px;
+        line-height: 1;
+        font-weight: 700;
+        display: inline-block;
+        color: inherit;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }}
+
+    .header-icon-btn {{
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        border-radius: 50%;
+        background: rgba(40, 28, 19, 0.75);
+        border: 1.5px solid rgba(244, 217, 160, 0.25);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         color: var(--color-gold);
-        cursor: pointer;
-        transition: all 0.2s ease;
-        padding: 0;
-        margin-right: 8px;
-    }}
-
-    .header-menu-btn:hover {{
-        background: rgba(60, 42, 29, 0.85);
-        border-color: var(--color-gold);
-        color: #FFFFFF;
-        transform: scale(1.05);
-    }}
-
-    .header-icon-btn {{
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        background: rgba(40, 28, 19, 0.7);
-        border: 1px solid rgba(244, 217, 160, 0.2);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--color-text-secondary);
         cursor: pointer;
         transition: all 0.2s ease;
         text-decoration: none;
     }}
 
     .header-icon-btn:hover {{
-        background: rgba(60, 42, 29, 0.85);
+        background: rgba(60, 42, 29, 0.95);
         border-color: var(--color-gold);
-        color: var(--color-gold);
-        transform: translateY(-1px);
+        color: #FFFFFF;
+        transform: translateY(-1px) scale(1.04);
+        box-shadow: 0 4px 14px rgba(244, 217, 160, 0.25);
+    }}
+
+    .header-icon-bell {{
+        width: 20px;
+        height: 20px;
+        display: inline-block;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23F4D9A0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9'%3E%3C/path%3E%3Cpath d='M13.73 21a2 2 0 0 1-3.46 0'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+    }}
+
+    .header-icon-gear {{
+        width: 20px;
+        height: 20px;
+        display: inline-block;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23F4D9A0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'%3E%3C/circle%3E%3Cpath d='M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
     }}
 
     .user-avatar {{

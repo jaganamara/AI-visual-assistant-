@@ -30,11 +30,11 @@ def get_nvidia_logo_svg(width: int = 16, height: int = 16) -> str:
 def render_app_header(gpu_info: Dict[str, Any], user_initials: str = "AJ") -> None:
     """
     Renders the clean, top application header with:
-    - Sidebar toggle button (accessible everywhere)
-    - AI Visual Assistant branding & logo
+    - Sidebar toggle button (accessible everywhere with ☰ / ✕ state)
+    - AI Visual Assistant branding & stylized Eye logo
     - Local Processing & GPU hardware indicators
-    - Active Activity History & Notifications button
-    - Active Application Settings button
+    - Active Activity History & Notifications button (with bell icon)
+    - Active Application Settings button (with gear icon)
     - User avatar
     """
     if gpu_info.get("cuda_available", False):
@@ -45,24 +45,14 @@ def render_app_header(gpu_info: Dict[str, Any], user_initials: str = "AJ") -> No
     else:
         gpu_display = "CPU Processing Mode"
 
-    eye_svg = get_eye_logo_svg(40, 40)
-    nvidia_svg = get_nvidia_logo_svg(16, 16)
-    
-    # Hamburger menu toggle SVG
-    menu_svg = (
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
-        '<line x1="3" y1="12" x2="21" y2="12"></line>'
-        '<line x1="3" y1="6" x2="21" y2="6"></line>'
-        '<line x1="3" y1="18" x2="21" y2="18"></line>'
-        '</svg>'
-    )
-
-    # Clean, minified HTML with zero indented code blocks
+    # Clean, minified HTML with zero raw multiline SVGs to prevent DOMPurify stripping
     header_html = (
         '<div class="app-header-container">'
         '<div class="app-brand">'
-        f'<button type="button" class="header-menu-btn" onclick="const c = document.querySelector(\'[data-testid=\\\'stSidebarCollapsedControl\\\'] button\') || document.querySelector(\'[data-testid=\\\'stSidebarCollapsedControl\\\']\') || (window.parent && window.parent.document.querySelector(\'[data-testid=\\\'stSidebarCollapsedControl\\\'] button\')); if (c) c.click(); const exp = document.querySelector(\'[data-testid=\\\'stSidebarCollapseButton\\\'] button\') || (window.parent && window.parent.document.querySelector(\'[data-testid=\\\'stSidebarCollapseButton\\\'] button\')); if (!c && exp) exp.click();" title="Toggle Navigation Sidebar">{menu_svg}</button>'
-        f'<div class="app-logo-eye">{eye_svg}</div>'
+        '<button id="sidebarToggleBtn" type="button" class="header-menu-btn" title="Open Navigation" aria-label="Open Navigation">'
+        '<span id="sidebarToggleIcon" class="menu-icon-symbol">&#9776;</span>'
+        '</button>'
+        '<div class="app-logo-eye" title="AI Visual Assistant"></div>'
         '<div class="app-title-group">'
         '<span class="app-title">AI Visual Assistant</span>'
         '<span class="app-subtitle">Assistive Vision &middot; OCR &middot; Voice Q&amp;A</span>'
@@ -74,26 +64,96 @@ def render_app_header(gpu_info: Dict[str, Any], user_initials: str = "AJ") -> No
         '<span>Local Processing</span>'
         '</div>'
         '<div class="header-pill">'
-        f'{nvidia_svg}'
+        '<span class="header-nvidia-icon"></span>'
         f'<span style="color: #F4D9A0; font-weight: 600;">{gpu_display}</span>'
         '</div>'
         '<a href="?nav=Activity+History" target="_self" class="header-icon-btn" title="Activity History &amp; Notifications">'
-        '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
-        '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>'
-        '<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>'
-        '</svg>'
+        '<span class="header-icon-bell"></span>'
         '</a>'
         '<a href="?nav=Settings" target="_self" class="header-icon-btn" title="Application Settings">'
-        '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
-        '<circle cx="12" cy="12" r="3"></circle>'
-        '<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>'
-        '</svg>'
+        '<span class="header-icon-gear"></span>'
         '</a>'
         f'<div class="user-avatar" title="Active User: {user_initials}">{user_initials}</div>'
         '</div>'
         '</div>'
+        '<script>'
+        '(function() {'
+        '  function getExpandBtn() {'
+        '    return document.querySelector(\'button[data-testid="stExpandSidebarButton"]\')'
+        '        || document.querySelector(\'[data-testid="stExpandSidebarButton"] button\')'
+        '        || document.querySelector(\'[data-testid="stExpandSidebarButton"]\')'
+        '        || document.querySelector(\'button[aria-label="Expand sidebar"]\');'
+        '  }'
+        '  function getCollapseBtn() {'
+        '    return document.querySelector(\'button[data-testid="stSidebarCollapseButton"]\')'
+        '        || document.querySelector(\'[data-testid="stSidebarCollapseButton"] button\')'
+        '        || document.querySelector(\'[data-testid="stSidebarCollapseButton"]\')'
+        '        || document.querySelector(\'button[aria-label="Collapse sidebar"]\');'
+        '  }'
+        '  function isSidebarOpen() {'
+        '    const sb = document.querySelector(\'section[data-testid="stSidebar"]\');'
+        '    if (!sb) return false;'
+        '    const exp = sb.getAttribute("aria-expanded");'
+        '    if (exp === "true") return true;'
+        '    if (exp === "false") return false;'
+        '    return sb.offsetWidth > 40;'
+        '  }'
+        '  function syncSidebarState() {'
+        '    const btn = document.getElementById("sidebarToggleBtn");'
+        '    const icon = document.getElementById("sidebarToggleIcon");'
+        '    if (!btn || !icon) return;'
+        '    const open = isSidebarOpen();'
+        '    if (open) {'
+        '      icon.innerHTML = "&#10005;";'
+        '      btn.title = "Close Navigation";'
+        '      btn.setAttribute("aria-label", "Close Navigation");'
+        '    } else {'
+        '      icon.innerHTML = "&#9776;";'
+        '      btn.title = "Open Navigation";'
+        '      btn.setAttribute("aria-label", "Open Navigation");'
+        '    }'
+        '  }'
+        '  function setupToggle() {'
+        '    const btn = document.getElementById("sidebarToggleBtn");'
+        '    if (!btn) return;'
+        '    btn.onclick = function(e) {'
+        '      e.preventDefault();'
+        '      e.stopPropagation();'
+        '      const open = isSidebarOpen();'
+        '      const expandBtn = getExpandBtn();'
+        '      const collapseBtn = getCollapseBtn();'
+        '      if (open) {'
+        '        if (collapseBtn) { collapseBtn.click(); }'
+        '        else {'
+        '          const sb = document.querySelector(\'section[data-testid="stSidebar"]\');'
+        '          if (sb) sb.setAttribute("aria-expanded", "false");'
+        '        }'
+        '      } else {'
+        '        if (expandBtn) { expandBtn.click(); }'
+        '        else {'
+        '          const sb = document.querySelector(\'section[data-testid="stSidebar"]\');'
+        '          if (sb) sb.setAttribute("aria-expanded", "true");'
+        '        }'
+        '      }'
+        '      setTimeout(syncSidebarState, 120);'
+        '      setTimeout(syncSidebarState, 350);'
+        '    };'
+        '    syncSidebarState();'
+        '  }'
+        '  setupToggle();'
+        '  setTimeout(setupToggle, 250);'
+        '  setTimeout(setupToggle, 600);'
+        '  const sb = document.querySelector(\'section[data-testid="stSidebar"]\');'
+        '  if (sb && !window._sbToggleObs) {'
+        '    window._sbToggleObs = true;'
+        '    const obs = new MutationObserver(syncSidebarState);'
+        '    obs.observe(sb, { attributes: true, attributeFilter: ["aria-expanded", "style"] });'
+        '    window.addEventListener("resize", syncSidebarState);'
+        '  }'
+        '})();'
+        '</script>'
     )
-    st.html(header_html)
+    st.html(header_html, unsafe_allow_javascript=True)
 
 
 def render_workspace_hero() -> None:
