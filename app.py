@@ -1,9 +1,9 @@
 """
-AI Visual Assistant - Production UI Redesign.
+AI Visual Assistant - Production UI Application.
 Multimodal assistive vision web application with YOLOv8 object detection,
 Salesforce BLIP scene captioning & VQA, EasyOCR text extraction,
 and Whisper / gTTS speech interaction.
-Recreated to pixel-level fidelity matching the reference design specification.
+Fully refined and bug-fixed across every section.
 """
 
 import os
@@ -39,7 +39,6 @@ from src.ui.components import (
     render_getting_started_card,
     draw_styled_detections,
     render_audio_waveform,
-    get_eye_logo_svg,
 )
 from src.ui.history import ActivityHistory
 
@@ -55,13 +54,6 @@ st.set_page_config(
 # Initialize Session State
 if "active_nav" not in st.session_state:
     st.session_state.active_nav = "Scene Analysis"
-
-# Read query params navigation if present
-if "nav" in st.query_params:
-    target_nav = st.query_params["nav"]
-    valid_navs = ["Scene Analysis", "Voice & Visual Q&A", "Object Detection", "Text Reader (OCR)", "Activity History", "Settings"]
-    if target_nav in valid_navs:
-        st.session_state.active_nav = target_nav
 
 if "font_scale" not in st.session_state:
     st.session_state.font_scale = 1.0
@@ -111,7 +103,27 @@ if "vqa_last_a" not in st.session_state:
 if "getting_started_step" not in st.session_state:
     st.session_state.getting_started_step = 1
 
-# Inject scoped high-fidelity stylesheet
+# Handle Query Parameters for Seamless Navigation
+if "nav" in st.query_params:
+    target_nav = st.query_params["nav"]
+    valid_navs = [
+        "Scene Analysis",
+        "Voice & Visual Q&A",
+        "Object Detection",
+        "Text Reader (OCR)",
+        "Activity History",
+        "Settings",
+    ]
+    if target_nav in valid_navs:
+        st.session_state.active_nav = target_nav
+
+if "guide_step" in st.query_params:
+    try:
+        st.session_state.getting_started_step = int(st.query_params["guide_step"])
+    except ValueError:
+        pass
+
+# Inject bulletproof CSS
 st.markdown(
     get_global_css(
         font_scale=st.session_state.font_scale,
@@ -158,7 +170,7 @@ def run_full_scene_pipeline(image: Image.Image, record_task: str = "Scene Analys
         )
         spoken_text = synthesis["spoken_narrative"]
 
-        # 5. Text-to-Speech audio generation
+        # 5. Text-to-Speech Audio
         tts = get_tts()
         audio_data = tts.to_audio_bytes(spoken_text)
 
@@ -187,7 +199,6 @@ def run_full_scene_pipeline(image: Image.Image, record_task: str = "Scene Analys
 
 # --- AUTO-LOAD DEFAULT SAMPLE SCENE IF FRESH START ---
 if st.session_state.current_image is None:
-    # Check for city sidewalk sample first, or fallback to bus.jpg
     sample_sidewalk = os.path.join(PROJECT_ROOT, "sample_images", "city_sidewalk.jpg")
     sample_bus = os.path.join(PROJECT_ROOT, "sample_images", "bus.jpg")
     initial_sample = sample_sidewalk if os.path.exists(sample_sidewalk) else (sample_bus if os.path.exists(sample_bus) else None)
@@ -196,20 +207,17 @@ if st.session_state.current_image is None:
         try:
             loaded_img = load_image(initial_sample)
             run_full_scene_pipeline(loaded_img, record_task="Initial Scene Analysis")
-        except Exception as e:
-            # Fallback gracefully if model initialization is pending
+        except Exception:
             st.session_state.current_image = load_image(initial_sample)
 
 
-# --- APPLICATION HEADER ---
+# --- APPLICATION HEADER (ZERO NUMERIC GLITCHES) ---
 vram_info = DeviceManager.get_vram_info()
 render_app_header(gpu_info=vram_info, user_initials="AJ")
 
 
-# --- LEFT SIDEBAR NAVIGATION ---
+# --- LEFT SIDEBAR NAVIGATION: 100% UNIFORM ACROSS ALL SECTIONS ---
 with st.sidebar:
-    st.markdown('<div class="sidebar-nav-container">', unsafe_allow_html=True)
-    
     nav_items = [
         ("Scene Analysis", "🏠  Scene Analysis"),
         ("Voice & Visual Q&A", "🎙️  Voice & Visual Q&A"),
@@ -221,281 +229,255 @@ with st.sidebar:
 
     for nav_id, nav_label in nav_items:
         is_active = (st.session_state.active_nav == nav_id)
-        marker = '<div class="nav-active-trigger"></div>' if is_active else '<div class="nav-inactive-trigger"></div>'
-        st.markdown(marker, unsafe_allow_html=True)
-        if st.button(nav_label, key=f"nav_btn_{nav_id}", use_container_width=True):
+        # Primary type gives active Burnt Amber fill; secondary gives neutral outline
+        if st.button(
+            nav_label,
+            key=f"nav_btn_{nav_id}",
+            type="primary" if is_active else "secondary",
+            use_container_width=True
+        ):
             st.session_state.active_nav = nav_id
             st.rerun()
 
-    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
-
-    # Getting Started Card at bottom
     render_getting_started_card()
-    
-    col_step1, col_step2 = st.columns([4, 1])
-    with col_step2:
-        st.markdown('<div class="btn-stepper-trigger"></div>', unsafe_allow_html=True)
-        if st.button("→", key="btn_next_guide_step", help="Next quick guide tip"):
-            st.session_state.getting_started_step = (st.session_state.getting_started_step % 3) + 1
-            st.rerun()
 
 
 # =========================================================================
-# VIEW 1: SCENE ANALYSIS (PRIMARY DASHBOARD MATCHING REFERENCE IMAGE)
+# VIEW 1: SCENE ANALYSIS (PRIMARY DASHBOARD)
 # =========================================================================
 if st.session_state.active_nav == "Scene Analysis":
     render_workspace_hero()
 
-    col_left, col_right = st.columns([1.02, 1.05], gap="large")
+    col_left, col_right = st.columns([1.0, 1.05], gap="large")
 
     # --- LEFT CARD: VISUAL PREVIEW & CONTROLS ---
     with col_left:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-
-        # Image Preview Area
-        if st.session_state.current_annotated_img is not None:
-            st.markdown("""
-            <div class="preview-box">
-                <div class="preview-expand-btn" title="Expand View">⛶</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.image(st.session_state.current_annotated_img, use_container_width=True)
-        elif st.session_state.current_image is not None:
-            st.image(st.session_state.current_image, use_container_width=True)
-        else:
-            st.markdown("""
-            <div class="preview-box">
+        with st.container(border=True):
+            # Clean image display without empty spacer divs
+            if st.session_state.current_annotated_img is not None:
+                st.image(st.session_state.current_annotated_img, use_container_width=True)
+            elif st.session_state.current_image is not None:
+                st.image(st.session_state.current_image, use_container_width=True)
+            else:
+                st.html("""
                 <div class="preview-empty">
                     <div class="preview-empty-icon">👁️</div>
                     <div style="font-weight: 600; font-size: 1.05rem; color: #F4D9A0; margin-bottom: 4px;">No Visual Scene Loaded</div>
-                    <div style="font-size: 0.85rem;">Capture live camera feed, upload a photo, or load a sample scene below.</div>
+                    <div style="font-size: 0.85rem; color: #A89887;">Capture live camera feed, upload a photo, or load a sample scene below.</div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """)
 
-        # Three Action Buttons Row
-        col_b1, col_b2, col_b3 = st.columns(3, gap="small")
-        with col_b1:
-            st.markdown('<div class="btn-gold-trigger"></div>', unsafe_allow_html=True)
-            if st.button("📷 Open Camera", key="btn_open_cam", use_container_width=True):
-                st.session_state.input_mode = "camera" if st.session_state.input_mode != "camera" else "none"
-                st.rerun()
+            # Three Action Controls Row
+            col_b1, col_b2, col_b3 = st.columns(3, gap="small")
+            with col_b1:
+                st.markdown('<div class="preview-btn-gold">', unsafe_allow_html=True)
+                if st.button("📷 Open Camera", key="btn_open_cam", use_container_width=True):
+                    st.session_state.input_mode = "camera" if st.session_state.input_mode != "camera" else "none"
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
-        with col_b2:
-            st.markdown('<div class="btn-mocha-trigger"></div>', unsafe_allow_html=True)
-            if st.button("📤 Upload Image", key="btn_upload_img", use_container_width=True):
-                st.session_state.input_mode = "upload" if st.session_state.input_mode != "upload" else "none"
-                st.rerun()
+            with col_b2:
+                st.markdown('<div class="preview-btn-mocha">', unsafe_allow_html=True)
+                if st.button("📤 Upload Image", key="btn_upload_img", use_container_width=True):
+                    st.session_state.input_mode = "upload" if st.session_state.input_mode != "upload" else "none"
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
-        with col_b3:
-            st.markdown('<div class="btn-mocha-trigger"></div>', unsafe_allow_html=True)
-            if st.button("🖼️ Use Sample Scene", key="btn_sample_scene", use_container_width=True):
-                st.session_state.input_mode = "none"
-                sample_p = os.path.join(PROJECT_ROOT, "sample_images", "city_sidewalk.jpg")
-                if not os.path.exists(sample_p):
-                    sample_p = os.path.join(PROJECT_ROOT, "sample_images", "bus.jpg")
-                if os.path.exists(sample_p):
-                    img = load_image(sample_p)
-                    run_full_scene_pipeline(img, record_task="Sample Scene Analysis")
+            with col_b3:
+                st.markdown('<div class="preview-btn-mocha">', unsafe_allow_html=True)
+                if st.button("🖼️ Use Sample Scene", key="btn_sample_scene", use_container_width=True):
+                    st.session_state.input_mode = "none"
+                    sample_p = os.path.join(PROJECT_ROOT, "sample_images", "city_sidewalk.jpg")
+                    if not os.path.exists(sample_p):
+                        sample_p = os.path.join(PROJECT_ROOT, "sample_images", "bus.jpg")
+                    if os.path.exists(sample_p):
+                        img = load_image(sample_p)
+                        run_full_scene_pipeline(img, record_task="Sample Scene Analysis")
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Toggled Input Controls inside Card
+            if st.session_state.input_mode == "camera":
+                st.markdown("---")
+                cam_shot = st.camera_input("Capture current viewpoint", key="cam_widget")
+                if cam_shot is not None:
+                    img = load_image(cam_shot.read())
+                    run_full_scene_pipeline(img, record_task="Webcam Live Analysis")
+                    st.session_state.input_mode = "none"
                     st.rerun()
 
-        # Interactive Inputs when toggled
-        if st.session_state.input_mode == "camera":
-            st.markdown("---")
-            cam_shot = st.camera_input("Capture current viewpoint", key="cam_widget")
-            if cam_shot is not None:
-                img = load_image(cam_shot.read())
-                run_full_scene_pipeline(img, record_task="Webcam Live Analysis")
-                st.session_state.input_mode = "none"
-                st.rerun()
-
-        elif st.session_state.input_mode == "upload":
-            st.markdown("---")
-            up_file = st.file_uploader("Select JPG or PNG image", type=["jpg", "jpeg", "png"], key="up_widget")
-            if up_file is not None:
-                img = load_image(up_file.read())
-                run_full_scene_pipeline(img, record_task="Uploaded Image Analysis")
-                st.session_state.input_mode = "none"
-                st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)
+            elif st.session_state.input_mode == "upload":
+                st.markdown("---")
+                up_file = st.file_uploader("Select JPG or PNG image", type=["jpg", "jpeg", "png"], key="up_widget")
+                if up_file is not None:
+                    img = load_image(up_file.read())
+                    run_full_scene_pipeline(img, record_task="Uploaded Image Analysis")
+                    st.session_state.input_mode = "none"
+                    st.rerun()
 
     # --- RIGHT CARD: ANALYSIS RESULTS ---
     with col_right:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-
-        # Results Header with Sparkle and Completion Badge
-        is_complete = bool(st.session_state.current_image is not None)
-        status_pill_html = (
-            '<div class="status-badge-complete"><span class="status-dot-green"></span> Analysis Complete</div>'
-            if is_complete else
-            '<div class="status-badge-ready">Ready to Analyze</div>'
-        )
-
-        st.markdown(f"""
-        <div class="results-header">
-            <div class="results-title-group">
-                <span class="sparkle-icon">✨</span>
-                <span class="results-title">Analysis Results</span>
-            </div>
-            {status_pill_html}
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Section A: Detected Objects
-        det_count = len(st.session_state.current_detections)
-        with st.expander(f"📦 Detected Objects  ({det_count})", expanded=True):
-            if st.session_state.current_detections:
-                pills_html = []
-                icon_map = {
-                    "person": "👤",
-                    "bicycle": "🚲",
-                    "car": "🚗",
-                    "bus": "🚌",
-                    "traffic light": "🚦",
-                    "traffic sign": "⚠️",
-                    "backpack": "🎒",
-                    "handbag": "👜",
-                    "dog": "🐕"
-                }
-                for d in st.session_state.current_detections:
-                    lbl = d.get("label", "object")
-                    icon = icon_map.get(lbl.lower(), "🏷️")
-                    conf = d.get("confidence", 0.0)
-                    urgency_cls = "object-pill-hazard" if d.get("urgency") == "HIGH" else "object-pill"
-                    pills_html.append(
-                        f'<div class="{urgency_cls}">'
-                        f'<span class="object-pill-icon">{icon}</span>'
-                        f'<span>{lbl.title()} ({conf:.2f})</span>'
-                        f'</div>'
-                    )
-                st.markdown(f'<div class="object-pills-container">{"".join(pills_html)}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<span style="color: #A89887; font-style: italic;">No prominent objects detected in view.</span>', unsafe_allow_html=True)
-
-        # Section B: Scene Summary
-        with st.expander("📄 Scene Summary", expanded=True):
-            if st.session_state.current_caption:
-                clean_cap = st.session_state.current_caption.strip()
-                clean_cap = clean_cap[0].upper() + clean_cap[1:]
-                if not clean_cap.endswith("."):
-                    clean_cap += "."
-                st.markdown(f'<div style="color: #E2D3C4; line-height: 1.6;">{clean_cap}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<span style="color: #A89887; font-style: italic;">Load or capture a scene to generate a natural language overview.</span>', unsafe_allow_html=True)
-
-        # Section C: Read Text (OCR)
-        with st.expander("🔤 Read Text (OCR)", expanded=True):
-            if st.session_state.current_ocr_results:
-                texts = [r["text"] for r in st.session_state.current_ocr_results if len(r.get("text", "").strip()) > 1]
-                if texts:
-                    st.markdown(f'<div style="color: #F4D9A0; font-weight: 500;">"{ " ".join(texts) }"</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<div style="color: #A89887;">No readable text detected in this scene.</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="color: #A89887;">No readable text detected in this scene.</div>', unsafe_allow_html=True)
-
-        # Bottom Voice Output Row
-        st.markdown('<div class="voice-output-row">', unsafe_allow_html=True)
-        col_v1, col_v2 = st.columns([1.1, 1.6], gap="medium")
-        
-        with col_v1:
-            st.markdown('<div class="btn-speak-trigger"></div>', unsafe_allow_html=True)
-            if st.button("🔊  Speak Results", key="btn_speak_dashboard", use_container_width=True):
-                if st.session_state.spoken_narrative:
-                    tts = get_tts()
-                    st.session_state.is_speaking = True
-                    audio_data = tts.to_audio_bytes(st.session_state.spoken_narrative)
-                    st.session_state.audio_bytes = audio_data
-                    if st.session_state.play_through_speakers:
-                        tts.speak(st.session_state.spoken_narrative)
-                else:
-                    st.info("No scene narrative generated yet.")
-
-        with col_v2:
-            st.markdown(render_audio_waveform(is_speaking=st.session_state.is_speaking), unsafe_allow_html=True)
-
-        # Hidden or auto-play audio player
-        if st.session_state.audio_bytes is not None:
-            st.audio(
-                st.session_state.audio_bytes,
-                format="audio/mp3",
-                autoplay=st.session_state.auto_play_audio
+        with st.container(border=True):
+            is_complete = bool(st.session_state.current_image is not None)
+            status_pill = (
+                '<div class="status-badge-complete"><span class="status-dot-green"></span> Analysis Complete</div>'
+                if is_complete else
+                '<div class="status-badge-ready">Ready to Analyze</div>'
             )
 
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.html(f"""
+            <div class="results-header">
+                <div class="results-title-group">
+                    <span class="sparkle-icon">✨</span>
+                    <span class="results-title">Analysis Results</span>
+                </div>
+                {status_pill}
+            </div>
+            """)
 
-    # --- FULL-WIDTH BOTTOM QUESTION BAR ---
-    st.markdown('<div class="question-bar-card">', unsafe_allow_html=True)
-    
-    col_q1, col_q2, col_q3 = st.columns([1.1, 3.2, 0.45], gap="medium")
-    
-    with col_q1:
-        st.markdown("""
-        <div class="question-label">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                <line x1="12" y1="19" x2="12" y2="23"></line>
-                <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
-            <span>Ask a Question about this Scene</span>
-        </div>
-        """, unsafe_allow_html=True)
+            # Section A: Detected Objects
+            det_count = len(st.session_state.current_detections)
+            with st.expander(f"📦 Detected Objects  ({det_count})", expanded=True):
+                if st.session_state.current_detections:
+                    icon_map = {
+                        "person": "👤",
+                        "bicycle": "🚲",
+                        "car": "🚗",
+                        "bus": "🚌",
+                        "traffic light": "🚦",
+                        "traffic sign": "⚠️",
+                        "backpack": "🎒",
+                        "handbag": "👜",
+                        "dog": "🐕"
+                    }
+                    pills_html = []
+                    for d in st.session_state.current_detections:
+                        lbl = d.get("label", "object")
+                        icon = icon_map.get(lbl.lower(), "🏷️")
+                        conf = d.get("confidence", 0.0)
+                        urgency_cls = "object-pill-hazard" if d.get("urgency") == "HIGH" else "object-pill"
+                        pills_html.append(
+                            f'<div class="{urgency_cls}">'
+                            f'<span class="object-pill-icon">{icon}</span>'
+                            f'<span>{lbl.title()} ({conf:.2f})</span>'
+                            f'</div>'
+                        )
+                    st.html(f'<div class="object-pills-container">{"".join(pills_html)}</div>')
+                else:
+                    st.html('<span style="color: #A89887; font-style: italic;">No prominent objects detected in view.</span>')
 
-    with col_q2:
-        typed_q = st.text_input(
-            "Query Scene",
-            placeholder="e.g., What is in front of me?",
-            label_visibility="collapsed",
-            key="dashboard_question_input"
-        )
+            # Section B: Scene Summary
+            with st.expander("📄 Scene Summary", expanded=True):
+                if st.session_state.current_caption:
+                    clean_cap = st.session_state.current_caption.strip()
+                    clean_cap = clean_cap[0].upper() + clean_cap[1:]
+                    if not clean_cap.endswith("."):
+                        clean_cap += "."
+                    st.html(f'<div style="color: #E2D3C4; line-height: 1.6;">{clean_cap}</div>')
+                else:
+                    st.html('<span style="color: #A89887; font-style: italic;">Load or capture a scene to generate a natural language overview.</span>')
 
-    with col_q3:
-        st.markdown('<div class="btn-send-trigger"></div>', unsafe_allow_html=True)
-        send_clicked = st.button("✈", key="btn_submit_vqa", help="Ask Visual Question")
+            # Section C: Read Text (OCR)
+            with st.expander("🔤 Read Text (OCR)", expanded=True):
+                if st.session_state.current_ocr_results:
+                    texts = [r["text"] for r in st.session_state.current_ocr_results if len(r.get("text", "").strip()) > 1]
+                    if texts:
+                        st.html(f'<div style="color: #F4D9A0; font-weight: 500;">"{ " ".join(texts) }"</div>')
+                    else:
+                        st.html('<div style="color: #A89887;">No readable text detected in this scene.</div>')
+                else:
+                    st.html('<div style="color: #A89887;">No readable text detected in this scene.</div>')
 
-    # Handle Question submission
-    if send_clicked and typed_q.strip():
-        if st.session_state.current_image is None:
-            st.warning("Please load or capture an image first.")
-        else:
-            with st.spinner("Analyzing scene with BLIP VQA..."):
-                vqa = VQAEngine()
-                answer = vqa.answer_question(st.session_state.current_image, typed_q.strip())
-                vqa.unload()
+            # Voice Output Row
+            col_v1, col_v2 = st.columns([1.1, 1.5], gap="medium", vertical_alignment="center")
+            with col_v1:
+                st.markdown('<div class="btn-speak-amber">', unsafe_allow_html=True)
+                if st.button("🔊  Speak Results", key="btn_speak_dashboard", use_container_width=True):
+                    if st.session_state.spoken_narrative:
+                        tts = get_tts()
+                        st.session_state.is_speaking = True
+                        audio_data = tts.to_audio_bytes(st.session_state.spoken_narrative)
+                        st.session_state.audio_bytes = audio_data
+                        if st.session_state.play_through_speakers:
+                            tts.speak(st.session_state.spoken_narrative)
+                    else:
+                        st.info("No scene narrative generated yet.")
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                st.session_state.vqa_last_q = typed_q.strip()
-                st.session_state.vqa_last_a = answer
+            with col_v2:
+                st.html(render_audio_waveform(is_speaking=st.session_state.is_speaking))
 
-                # Spoken audio answer
-                spoken_ans = f"Regarding '{typed_q.strip()}': {answer}."
-                tts = get_tts()
-                ans_audio = tts.to_audio_bytes(spoken_ans)
-                st.session_state.audio_bytes = ans_audio
-                if st.session_state.play_through_speakers:
-                    tts.speak(spoken_ans)
-
-                # Record in activity history
-                ActivityHistory.add_record(
-                    task_type="Visual Q&A",
-                    summary=f"Q: '{typed_q.strip()}' -> A: {answer}",
-                    details={"question": typed_q.strip(), "answer": answer},
-                    spoken_text=spoken_ans
+            if st.session_state.audio_bytes is not None:
+                st.audio(
+                    st.session_state.audio_bytes,
+                    format="audio/mp3",
+                    autoplay=st.session_state.auto_play_audio
                 )
 
-    # Show active Q&A response card if answered
-    if st.session_state.vqa_last_q and st.session_state.vqa_last_a:
-        st.markdown(f"""
-        <div class="vqa-answer-card">
-            <div class="vqa-q-text">Q: {st.session_state.vqa_last_q}</div>
-            <div class="vqa-a-text">A: <span style="color: #F4D9A0;">{st.session_state.vqa_last_a}</span></div>
-        </div>
-        """, unsafe_allow_html=True)
+    # --- FULL-WIDTH BOTTOM QUESTION BAR ---
+    with st.container(border=True):
+        col_q1, col_q2, col_q3 = st.columns([1.3, 3.2, 0.45], gap="medium", vertical_alignment="center")
+        with col_q1:
+            st.html("""
+            <div class="question-label">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4D9A0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+                <span>Ask a Question about this Scene</span>
+            </div>
+            """)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+        with col_q2:
+            typed_q = st.text_input(
+                "Query Scene",
+                placeholder="e.g., What is in front of me?",
+                label_visibility="collapsed",
+                key="dashboard_question_input"
+            )
+
+        with col_q3:
+            st.markdown('<div class="btn-send-amber">', unsafe_allow_html=True)
+            send_clicked = st.button("✈", key="btn_submit_vqa", help="Ask Visual Question", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # Handle Question submission
+        if send_clicked and typed_q.strip():
+            if st.session_state.current_image is None:
+                st.warning("Please load or capture an image first.")
+            else:
+                with st.spinner("Analyzing scene with BLIP VQA..."):
+                    vqa = VQAEngine()
+                    answer = vqa.answer_question(st.session_state.current_image, typed_q.strip())
+                    vqa.unload()
+
+                    st.session_state.vqa_last_q = typed_q.strip()
+                    st.session_state.vqa_last_a = answer
+
+                    spoken_ans = f"Regarding '{typed_q.strip()}': {answer}."
+                    tts = get_tts()
+                    ans_audio = tts.to_audio_bytes(spoken_ans)
+                    st.session_state.audio_bytes = ans_audio
+                    if st.session_state.play_through_speakers:
+                        tts.speak(spoken_ans)
+
+                    ActivityHistory.add_record(
+                        task_type="Visual Q&A",
+                        summary=f"Q: '{typed_q.strip()}' -> A: {answer}",
+                        details={"question": typed_q.strip(), "answer": answer},
+                        spoken_text=spoken_ans
+                    )
+
+        if st.session_state.vqa_last_q and st.session_state.vqa_last_a:
+            st.html(f"""
+            <div class="vqa-answer-card">
+                <div class="vqa-q-text">Q: {st.session_state.vqa_last_q}</div>
+                <div class="vqa-a-text">A: <span style="color: #F4D9A0;">{st.session_state.vqa_last_a}</span></div>
+            </div>
+            """)
 
 
 # =========================================================================
@@ -509,67 +491,70 @@ elif st.session_state.active_nav == "Voice & Visual Q&A":
     col_vqa1, col_vqa2 = st.columns([1, 1], gap="large")
 
     with col_vqa1:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-        st.markdown('<div style="font-weight: 600; color: #F4D9A0; margin-bottom: 10px;">Active Scene Reference</div>', unsafe_allow_html=True)
-        if st.session_state.current_image is not None:
-            st.image(st.session_state.current_image, use_container_width=True)
-        else:
-            st.info("No active scene. Please load a sample or upload an image in Scene Analysis.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown('<div style="font-weight: 600; color: #F4D9A0; margin-bottom: 10px;">Active Scene Reference</div>', unsafe_allow_html=True)
+            if st.session_state.current_image is not None:
+                st.image(st.session_state.current_image, use_container_width=True)
+            else:
+                st.info("No active scene. Please load a sample or upload an image in Scene Analysis.")
 
     with col_vqa2:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-        st.markdown('<div style="font-weight: 600; color: #F4D9A0; margin-bottom: 10px;">🎙️ Voice Input (OpenAI Whisper)</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown('<div style="font-weight: 600; color: #F4D9A0; margin-bottom: 12px;">🎙️ Voice Input (OpenAI Whisper)</div>', unsafe_allow_html=True)
 
-        voice_query = None
-        if hasattr(st, "audio_input"):
-            rec_audio = st.audio_input("Record voice query", key="voice_q_rec")
-            if rec_audio is not None:
-                with st.spinner("Transcribing speech with Whisper..."):
-                    recognizer = get_speech_recognizer()
-                    voice_query = recognizer.transcribe(rec_audio.read())
-                    recognizer.unload()
-                    if voice_query:
-                        st.success(f"Recognized: **\"{voice_query}\"**")
+            voice_query = None
+            if hasattr(st, "audio_input"):
+                rec_audio = st.audio_input("Record voice query", key="voice_q_rec")
+                if rec_audio is not None:
+                    with st.spinner("Transcribing speech with Whisper..."):
+                        recognizer = get_speech_recognizer()
+                        voice_query = recognizer.transcribe(rec_audio.read())
+                        recognizer.unload()
+                        if voice_query:
+                            st.success(f"Recognized: **\"{voice_query}\"**")
 
-        typed_q = st.text_input("Or enter your question:", value=voice_query or "", placeholder="e.g. What color is the bicycle?", key="typed_vqa_tab")
+            typed_q = st.text_input(
+                "Or enter your question:",
+                value=voice_query or "",
+                placeholder="e.g. What color is the bicycle?",
+                key="typed_vqa_tab"
+            )
 
-        st.markdown('<div class="btn-speak-trigger"></div>', unsafe_allow_html=True)
-        if st.button("💬 Get Spoken Answer", key="btn_vqa_tab_exec", use_container_width=True):
-            query = typed_q or voice_query
-            if not query:
-                st.warning("Please record a voice question or type one.")
-            elif st.session_state.current_image is None:
-                st.warning("Please load an image reference first.")
-            else:
-                with st.spinner("Analyzing image..."):
-                    vqa = VQAEngine()
-                    ans = vqa.answer_question(st.session_state.current_image, query)
-                    vqa.unload()
+            st.markdown('<div class="btn-speak-amber" style="margin-top: 10px;">', unsafe_allow_html=True)
+            if st.button("💬 Get Spoken Answer", key="btn_vqa_tab_exec", use_container_width=True):
+                query = typed_q or voice_query
+                if not query:
+                    st.warning("Please record a voice question or type one.")
+                elif st.session_state.current_image is None:
+                    st.warning("Please load an image reference first.")
+                else:
+                    with st.spinner("Analyzing image..."):
+                        vqa = VQAEngine()
+                        ans = vqa.answer_question(st.session_state.current_image, query)
+                        vqa.unload()
 
-                    st.markdown(f"""
-                    <div class="vqa-answer-card">
-                        <div class="vqa-q-text">Question: {query}</div>
-                        <div class="vqa-a-text">Answer: <span style="color: #F4D9A0; font-size: 1.25rem;">{ans}</span></div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        st.html(f"""
+                        <div class="vqa-answer-card">
+                            <div class="vqa-q-text">Question: {query}</div>
+                            <div class="vqa-a-text">Answer: <span style="color: #F4D9A0; font-size: 1.25rem;">{ans}</span></div>
+                        </div>
+                        """)
 
-                    spoken = f"The answer to '{query}' is: {ans}."
-                    tts = get_tts()
-                    aud = tts.to_audio_bytes(spoken)
-                    if aud:
-                        st.audio(aud, format="audio/mp3", autoplay=True)
-                    if st.session_state.play_through_speakers:
-                        tts.speak(spoken)
+                        spoken = f"The answer to '{query}' is: {ans}."
+                        tts = get_tts()
+                        aud = tts.to_audio_bytes(spoken)
+                        if aud:
+                            st.audio(aud, format="audio/mp3", autoplay=True)
+                        if st.session_state.play_through_speakers:
+                            tts.speak(spoken)
 
-                    ActivityHistory.add_record(
-                        task_type="Visual Q&A",
-                        summary=f"Q: '{query}' -> A: {ans}",
-                        details={"question": query, "answer": ans},
-                        spoken_text=spoken
-                    )
-
-        st.markdown('</div>', unsafe_allow_html=True)
+                        ActivityHistory.add_record(
+                            task_type="Visual Q&A",
+                            summary=f"Q: '{query}' -> A: {ans}",
+                            details={"question": query, "answer": ans},
+                            spoken_text=spoken
+                        )
+            st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =========================================================================
@@ -583,45 +568,45 @@ elif st.session_state.active_nav == "Object Detection":
     col_od1, col_od2 = st.columns([1, 1], gap="large")
 
     with col_od1:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-        if st.session_state.current_annotated_img is not None:
-            st.image(st.session_state.current_annotated_img, use_container_width=True)
-        elif st.session_state.current_image is not None:
-            st.image(st.session_state.current_image, use_container_width=True)
-        else:
-            st.info("No active image loaded. Upload or select an image.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            if st.session_state.current_annotated_img is not None:
+                st.image(st.session_state.current_annotated_img, use_container_width=True)
+            elif st.session_state.current_image is not None:
+                st.image(st.session_state.current_image, use_container_width=True)
+            else:
+                st.info("No active image loaded. Upload or select an image in Scene Analysis.")
 
     with col_od2:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-        conf = st.slider("Confidence Threshold", 0.15, 0.90, 0.35, 0.05, key="det_slider")
-        
-        st.markdown('<div class="btn-gold-trigger"></div>', unsafe_allow_html=True)
-        if st.button("Run Spatial Object Detection", key="btn_run_det_only", use_container_width=True):
-            if st.session_state.current_image is not None:
-                with st.spinner("Running YOLOv8 spatial localization..."):
-                    detector = ObjectDetector(model_name="yolov8n.pt", confidence_threshold=conf)
-                    dets = detector.detect(st.session_state.current_image)
-                    ann = draw_styled_detections(st.session_state.current_image, dets)
-                    summary = detector.generate_spoken_summary(dets)
-                    detector.unload()
+        with st.container(border=True):
+            st.markdown('<div style="font-weight: 600; color: #F4D9A0; margin-bottom: 8px;">Confidence Threshold</div>', unsafe_allow_html=True)
+            conf = st.slider("Detection Confidence", 0.15, 0.90, 0.35, 0.05, label_visibility="collapsed", key="det_slider")
+            
+            st.markdown('<div class="preview-btn-gold" style="margin-top: 14px; margin-bottom: 14px;">', unsafe_allow_html=True)
+            if st.button("Run Spatial Object Detection", key="btn_run_det_only", use_container_width=True):
+                if st.session_state.current_image is not None:
+                    with st.spinner("Running YOLOv8 spatial localization..."):
+                        detector = ObjectDetector(model_name="yolov8n.pt", confidence_threshold=conf)
+                        dets = detector.detect(st.session_state.current_image)
+                        ann = draw_styled_detections(st.session_state.current_image, dets)
+                        summary = detector.generate_spoken_summary(dets)
+                        detector.unload()
 
-                    st.session_state.current_detections = dets
-                    st.session_state.current_annotated_img = ann
-                    st.session_state.spoken_narrative = summary
+                        st.session_state.current_detections = dets
+                        st.session_state.current_annotated_img = ann
+                        st.session_state.spoken_narrative = summary
 
-                    st.success(f"Detected {len(dets)} objects.")
-                    st.write(f"**Spoken Summary**: {summary}")
+                        st.success(f"Detected {len(dets)} objects.")
+                        st.write(f"**Spoken Summary**: {summary}")
 
-                    tts = get_tts()
-                    aud = tts.to_audio_bytes(summary)
-                    if aud:
-                        st.audio(aud, format="audio/mp3", autoplay=True)
-                    if st.session_state.play_through_speakers:
-                        tts.speak(summary)
-            else:
-                st.warning("Please load a scene image first.")
-        st.markdown('</div>', unsafe_allow_html=True)
+                        tts = get_tts()
+                        aud = tts.to_audio_bytes(summary)
+                        if aud:
+                            st.audio(aud, format="audio/mp3", autoplay=True)
+                        if st.session_state.play_through_speakers:
+                            tts.speak(summary)
+                else:
+                    st.warning("Please load a scene image first.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =========================================================================
@@ -635,38 +620,37 @@ elif st.session_state.active_nav == "Text Reader (OCR)":
     col_ocr1, col_ocr2 = st.columns([1, 1], gap="large")
 
     with col_ocr1:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-        if st.session_state.current_image is not None:
-            st.image(st.session_state.current_image, use_container_width=True)
-        else:
-            st.info("No active image loaded. Upload or select an image.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            if st.session_state.current_image is not None:
+                st.image(st.session_state.current_image, use_container_width=True)
+            else:
+                st.info("No active image loaded. Upload or select an image in Scene Analysis.")
 
     with col_ocr2:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-        st.markdown('<div class="btn-gold-trigger"></div>', unsafe_allow_html=True)
-        if st.button("Extract and Read Text", key="btn_run_ocr_only", use_container_width=True):
-            if st.session_state.current_image is not None:
-                with st.spinner("Extracting printed text with EasyOCR..."):
-                    reader = OCRReader(confidence_threshold=0.25)
-                    results = reader.read_text(st.session_state.current_image)
-                    ann_ocr = reader.annotate(st.session_state.current_image, results)
-                    summary = reader.generate_spoken_summary(results)
-                    reader.unload()
+        with st.container(border=True):
+            st.markdown('<div class="preview-btn-gold" style="margin-bottom: 14px;">', unsafe_allow_html=True)
+            if st.button("Extract and Read Text", key="btn_run_ocr_only", use_container_width=True):
+                if st.session_state.current_image is not None:
+                    with st.spinner("Extracting printed text with EasyOCR..."):
+                        reader = OCRReader(confidence_threshold=0.25)
+                        results = reader.read_text(st.session_state.current_image)
+                        ann_ocr = reader.annotate(st.session_state.current_image, results)
+                        summary = reader.generate_spoken_summary(results)
+                        reader.unload()
 
-                    st.session_state.current_ocr_results = results
-                    st.image(ann_ocr, caption="Detected Text Regions", use_container_width=True)
-                    st.write(f"**Extracted Text**: {summary}")
+                        st.session_state.current_ocr_results = results
+                        st.image(ann_ocr, caption="Detected Text Regions", use_container_width=True)
+                        st.write(f"**Extracted Text**: {summary}")
 
-                    tts = get_tts()
-                    aud = tts.to_audio_bytes(summary)
-                    if aud:
-                        st.audio(aud, format="audio/mp3", autoplay=True)
-                    if st.session_state.play_through_speakers:
-                        tts.speak(summary)
-            else:
-                st.warning("Please load a scene image first.")
-        st.markdown('</div>', unsafe_allow_html=True)
+                        tts = get_tts()
+                        aud = tts.to_audio_bytes(summary)
+                        if aud:
+                            st.audio(aud, format="audio/mp3", autoplay=True)
+                        if st.session_state.play_through_speakers:
+                            tts.speak(summary)
+                else:
+                    st.warning("Please load a scene image first.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =========================================================================
@@ -681,33 +665,35 @@ elif st.session_state.active_nav == "Activity History":
 
     col_h_act, _ = st.columns([1, 4])
     with col_h_act:
+        st.markdown('<div class="preview-btn-mocha">', unsafe_allow_html=True)
         if st.button("🧹 Clear History", key="btn_clear_hist"):
             ActivityHistory.clear()
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if not records:
-        st.markdown("""
-        <div class="dash-card" style="text-align: center; padding: 40px;">
-            <div style="font-size: 2.5rem; color: #F4D9A0; margin-bottom: 8px;">⏱️</div>
-            <div style="font-size: 1.1rem; color: #FFFFFF; font-weight: 600;">No Activity Records Yet</div>
-            <div style="font-size: 0.88rem; color: #A89887; margin-top: 4px;">Recent scene descriptions and visual question answers will be preserved here during your session.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container(border=True):
+            st.html("""
+            <div style="text-align: center; padding: 40px;">
+                <div style="font-size: 2.5rem; color: #F4D9A0; margin-bottom: 8px;">⏱️</div>
+                <div style="font-size: 1.1rem; color: #FFFFFF; font-weight: 600;">No Activity Records Yet</div>
+                <div style="font-size: 0.88rem; color: #A89887; margin-top: 4px;">Recent scene descriptions and visual question answers will be preserved here during your session.</div>
+            </div>
+            """)
     else:
         for r in records:
-            st.markdown(f"""
-            <div class="dash-card" style="margin-bottom: 12px; padding: 16px 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            with st.container(border=True):
+                st.html(f"""
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <span style="color: #F4D9A0; font-weight: 600; font-size: 0.95rem;">{r['task_type']}</span>
                     <span style="color: #A89887; font-size: 0.8rem;">{r['timestamp']}</span>
                 </div>
-                <div style="color: #E2D3C4; font-size: 0.95rem; margin-bottom: 8px;">{r['summary']}</div>
-            </div>
-            """, unsafe_allow_html=True)
+                <div style="color: #E2D3C4; font-size: 0.95rem;">{r['summary']}</div>
+                """)
 
 
 # =========================================================================
-# VIEW 6: SETTINGS & ACADEMIC LIMITATIONS (REQUIREMENT 15)
+# VIEW 6: SETTINGS & ACADEMIC LIMITATIONS
 # =========================================================================
 elif st.session_state.active_nav == "Settings":
     st.markdown('<div class="workspace-title">System Settings & Device Monitor</div>', unsafe_allow_html=True)
@@ -717,65 +703,69 @@ elif st.session_state.active_nav == "Settings":
     col_s1, col_s2 = st.columns([1, 1], gap="large")
 
     with col_s1:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-        st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">🔊 Audio & Speech Preferences</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">🔊 Audio & Speech Preferences</div>', unsafe_allow_html=True)
 
-        spk = st.checkbox(
-            "Play through laptop speakers (offline pyttsx3)",
-            value=st.session_state.play_through_speakers,
-            help="Speaks aloud using Windows SAPI5 built-in speech synthesis"
-        )
-        st.session_state.play_through_speakers = spk
+            spk = st.checkbox(
+                "Play through laptop speakers (offline pyttsx3)",
+                value=st.session_state.play_through_speakers,
+                help="Speaks aloud using Windows SAPI5 built-in speech synthesis"
+            )
+            st.session_state.play_through_speakers = spk
 
-        auto_a = st.checkbox("Auto-play browser streaming audio (gTTS)", value=st.session_state.auto_play_audio)
-        st.session_state.auto_play_audio = auto_a
+            auto_a = st.checkbox("Auto-play browser streaming audio (gTTS)", value=st.session_state.auto_play_audio)
+            st.session_state.auto_play_audio = auto_a
 
-        st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">♿ Accessibility Display Options</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">♿ Accessibility Display Options</div>', unsafe_allow_html=True)
 
-        f_scale = st.slider("Font Scaling", 0.9, 1.4, float(st.session_state.font_scale), 0.05)
-        if f_scale != st.session_state.font_scale:
-            st.session_state.font_scale = f_scale
-            st.rerun()
+            f_scale = st.slider("Font Scaling", 0.9, 1.4, float(st.session_state.font_scale), 0.05)
+            if f_scale != st.session_state.font_scale:
+                st.session_state.font_scale = f_scale
+                st.rerun()
 
-        hc = st.checkbox("High Contrast Borders", value=st.session_state.high_contrast)
-        if hc != st.session_state.high_contrast:
-            st.session_state.high_contrast = hc
-            st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)
+            hc = st.checkbox("High Contrast Borders", value=st.session_state.high_contrast)
+            if hc != st.session_state.high_contrast:
+                st.session_state.high_contrast = hc
+                st.rerun()
 
     with col_s2:
-        st.markdown('<div class="dash-card">', unsafe_allow_html=True)
-        st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">🎮 GPU & Hardware Diagnostics</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown('<div style="font-weight: 600; font-size: 1.1rem; color: #F4D9A0; margin-bottom: 14px;">🎮 GPU & Hardware Diagnostics</div>', unsafe_allow_html=True)
 
-        vram = DeviceManager.get_vram_info()
-        if vram["cuda_available"]:
-            st.success(f"NVIDIA GPU Active: **{vram['device_name']}**")
-            col_m1, col_m2 = st.columns(2)
-            col_m1.metric("Allocated VRAM", f"{vram['allocated_mb']} MB")
-            col_m2.metric("Free VRAM", f"{vram['free_vram_mb']} MB")
-        else:
-            st.info("Running on CPU Mode")
+            vram = DeviceManager.get_vram_info()
+            if vram["cuda_available"]:
+                st.success(f"NVIDIA GPU Active: **{vram['device_name']}**")
+                col_m1, col_m2 = st.columns(2)
+                col_m1.metric("Allocated VRAM", f"{vram['allocated_mb']} MB")
+                col_m2.metric("Free VRAM", f"{vram['free_vram_mb']} MB")
+            else:
+                st.info("Running on CPU Mode")
 
-        st.caption(f"📁 **Models Cache**: `{get_cache_dir()}`")
+            st.caption(f"📁 **Models Cache**: `{get_cache_dir()}`")
 
-        if st.button("🧹 Clear GPU VRAM Cache", help="Evicts unused model allocations from RTX memory"):
-            DeviceManager.clear_vram_cache()
-            st.success("VRAM cache evicted!")
-            st.rerun()
+            st.markdown('<div class="preview-btn-mocha" style="margin-top: 10px;">', unsafe_allow_html=True)
+            if st.button("🧹 Clear GPU VRAM Cache", help="Evicts unused model allocations from RTX memory"):
+                DeviceManager.clear_vram_cache()
+                st.success("VRAM cache evicted!")
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Academic Prototype Notice & Limitations (Relocated per Requirement 15)
-    st.markdown('<div class="dash-card" style="margin-top: 1.5rem; border-left: 4px solid #C8792C;">', unsafe_allow_html=True)
-    st.markdown('<div style="font-weight: 600; font-size: 1.15rem; color: #F4D9A0; margin-bottom: 10px;">⚠️ Academic Prototype Notice & Technical Limitations</div>', unsafe_allow_html=True)
-    st.markdown("""
-    This application is strictly an **academic research prototype and assistive cognitive aid**.
-    
-    - **No Calibrated 3D Metric Depth**: Distances are estimated heuristically from 2D bounding-box area percentage. The system **cannot** measure physical metric distance and must **never** be used as an autonomous navigation system or for life-critical obstacle avoidance.
-    - **Environmental Sensitivity**: Performance may degrade under severe lighting, darkness, fast camera motion blur, or heavy lens flare.
-    - **Vision-Language Hallucinations**: Vision-language models (BLIP) can occasionally hallucinate plausible-sounding details for ambiguous visual stimuli.
-    - **Local Processing**: Model weights and inferences run locally on the detected NVIDIA GeForce RTX 2050 GPU for privacy and zero data leakage.
-    """)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Academic Prototype Notice & Limitations (Preserved per Requirement 15)
+    with st.container(border=True):
+        st.html("""
+        <div style="border-left: 4px solid #C8792C; padding-left: 14px;">
+            <div style="font-weight: 600; font-size: 1.15rem; color: #F4D9A0; margin-bottom: 10px;">
+                ⚠️ Academic Prototype Notice &amp; Technical Limitations
+            </div>
+            <div style="color: #E2D3C4; line-height: 1.6; font-size: 0.92rem;">
+                This application is strictly an <b>academic research prototype and assistive cognitive aid</b>.
+                <ul style="margin-top: 8px; padding-left: 20px;">
+                    <li><b>No Calibrated 3D Metric Depth</b>: Distances are estimated heuristically from 2D bounding-box area percentage. The system cannot measure physical metric distance and must <b>never</b> be used as an autonomous navigation system or for life-critical obstacle avoidance.</li>
+                    <li><b>Environmental Sensitivity</b>: Performance may degrade under severe lighting, darkness, fast camera motion blur, or heavy lens flare.</li>
+                    <li><b>Vision-Language Hallucinations</b>: Vision-language models (BLIP) can occasionally hallucinate plausible-sounding details for ambiguous visual stimuli.</li>
+                    <li><b>Local Processing</b>: Model weights and inferences run locally on the detected NVIDIA GeForce RTX 2050 GPU for privacy and zero data leakage.</li>
+                </ul>
+            </div>
+        </div>
+        """)

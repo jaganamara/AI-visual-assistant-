@@ -1,39 +1,32 @@
 """
-Theme and custom CSS styles for the AI Visual Assistant dashboard.
-Implements the exact Mocha Brown, Champagne Gold, and Burnt Amber color palette,
-refined typography, responsive desktop layout, and interactive states.
+Refined theme and CSS styles for the AI Visual Assistant dashboard.
+Ensures rock-solid layout consistency across all sections, perfect font ligature rendering,
+responsive sidebar sizing, properly aligned cards and buttons, and clean visual hierarchy.
 """
 
-# Exact brand palette specified in project requirements
+# Exact brand palette
 COLOR_MOCHA = "#5B4632"
 COLOR_GOLD = "#F4D9A0"
 COLOR_AMBER = "#C8792C"
 
-# Derived depth palette
 COLOR_BG_DEEP = "#18110B"
 COLOR_BG_SIDEBAR = "#20160F"
-COLOR_BG_SURFACE = "#281C13"
-COLOR_BG_CARD = "#2E2117"
+COLOR_BG_CARD = "#2A1D15"
 COLOR_BG_CARD_LIGHT = "#36271C"
 COLOR_BORDER_SUBTLE = "rgba(244, 217, 160, 0.18)"
-COLOR_BORDER_STRONG = "rgba(200, 121, 44, 0.45)"
 COLOR_TEXT_PRIMARY = "#FFFFFF"
 COLOR_TEXT_SECONDARY = "#E2D3C4"
 COLOR_TEXT_MUTED = "#A89887"
-COLOR_TEXT_GOLD = "#F4D9A0"
 
 
 def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
-    """
-    Returns the complete CSS stylesheet for the application.
-    Supports adjustable font scale and high-contrast accessibility options.
-    """
+    """Returns the bulletproof, scoped CSS stylesheet for the application."""
     contrast_border = "rgba(244, 217, 160, 0.45)" if high_contrast else COLOR_BORDER_SUBTLE
-    card_bg = "#1A1009" if high_contrast else COLOR_BG_CARD
 
     return f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
     :root {{
         --color-mocha: {COLOR_MOCHA};
@@ -41,7 +34,7 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         --color-amber: {COLOR_AMBER};
         --color-bg-deep: {COLOR_BG_DEEP};
         --color-bg-sidebar: {COLOR_BG_SIDEBAR};
-        --color-bg-card: {card_bg};
+        --color-bg-card: {COLOR_BG_CARD};
         --color-border: {contrast_border};
         --color-text-primary: {COLOR_TEXT_PRIMARY};
         --color-text-secondary: {COLOR_TEXT_SECONDARY};
@@ -49,11 +42,30 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         --font-scale: {font_scale};
     }}
 
-    /* Reset and base page styling */
-    html, body, [class*="st-"] {{
+    /* Base Typography - Scoped to avoid breaking Material Symbol icon ligatures */
+    .stApp, p, h1, h2, h3, h4, h5, h6, input, textarea, select {{
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         color: var(--color-text-secondary);
         font-size: calc(15px * var(--font-scale));
+    }}
+
+    /* Protect Streamlit Material Symbols ligatures */
+    [data-testid="stIconMaterial"], 
+    .material-symbols-rounded, 
+    .material-symbols-outlined, 
+    .material-icons,
+    [class*="material-symbols"] {{
+        font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
+        font-weight: normal !important;
+        font-style: normal !important;
+        display: inline-block !important;
+        line-height: 1 !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        word-wrap: normal !important;
+        white-space: nowrap !important;
+        direction: ltr !important;
+        -webkit-font-smoothing: antialiased !important;
     }}
 
     .stApp {{
@@ -65,7 +77,7 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         color: var(--color-text-secondary) !important;
     }}
 
-    /* Hide standard Streamlit header and decorations */
+    /* Clean Streamlit Default Header */
     header[data-testid="stHeader"] {{
         background: transparent !important;
         height: 0px !important;
@@ -74,87 +86,108 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         visibility: hidden !important;
     }}
 
-    /* Main workspace container padding */
+    /* Main Container Padding */
     .main .block-container {{
         padding-top: 1rem !important;
-        padding-bottom: 2rem !important;
+        padding-bottom: 2.5rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
         max-width: 100% !important;
     }}
 
-    /* Sidebar container */
+    /* =========================================================================
+       SIDEBAR: ROCK-SOLID CONSISTENCY ACROSS ALL SECTIONS
+       ========================================================================= */
     section[data-testid="stSidebar"] {{
         background-color: var(--color-bg-sidebar) !important;
         border-right: 1px solid rgba(244, 217, 160, 0.12) !important;
         box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35) !important;
-        width: 250px !important;
+    }}
+
+    section[data-testid="stSidebar"][aria-expanded="true"] {{
+        min-width: 260px !important;
+        max-width: 275px !important;
+        width: 260px !important;
     }}
 
     section[data-testid="stSidebar"] > div:first-child {{
         background-color: var(--color-bg-sidebar) !important;
-        padding-top: 1rem !important;
+        padding: 1.25rem 0.85rem !important;
     }}
 
-    /* Sidebar Navigation Items via :has triggers */
-    div[data-testid="stSidebar"] div:has(.nav-active-trigger) button {{
-        background: #C8792C !important;
-        color: #FFFFFF !important;
-        border: 1.5px solid #F4D9A0 !important;
+    /* Sidebar Navigation Buttons - Clean, Uniform & Centered */
+    section[data-testid="stSidebar"] div.stButton > button {{
+        width: 100% !important;
+        height: 48px !important;
+        min-height: 48px !important;
         border-radius: 12px !important;
-        box-shadow: 0 4px 14px rgba(200, 121, 44, 0.4) !important;
-        font-weight: 600 !important;
-        text-align: left !important;
+        font-size: 0.95rem !important;
+        display: flex !important;
+        align-items: center !important;
         justify-content: flex-start !important;
         padding: 10px 16px !important;
-        margin-bottom: 4px !important;
-        width: 100% !important;
+        margin-bottom: 6px !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        text-align: left !important;
     }}
 
-    div[data-testid="stSidebar"] div:has(.nav-active-trigger) button:hover {{
-        background: #D38234 !important;
-        border-color: #F8E5BA !important;
-        transform: translateX(2px) !important;
-    }}
-
-    div[data-testid="stSidebar"] div:has(.nav-inactive-trigger) button {{
+    /* Inactive Navigation Item */
+    section[data-testid="stSidebar"] div.stButton > button[kind="secondary"],
+    section[data-testid="stSidebar"] div.stButton > button[data-testid="baseButton-secondary"] {{
         background: transparent !important;
         color: #E2D3C4 !important;
         border: 1px solid transparent !important;
-        border-radius: 12px !important;
         font-weight: 500 !important;
-        text-align: left !important;
-        justify-content: flex-start !important;
-        padding: 10px 16px !important;
-        margin-bottom: 4px !important;
-        width: 100% !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: none !important;
     }}
 
-    div[data-testid="stSidebar"] div:has(.nav-inactive-trigger) button:hover {{
-        background: rgba(91, 70, 50, 0.4) !important;
+    section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {{
+        background: rgba(91, 70, 50, 0.45) !important;
         color: #FFFFFF !important;
-        border-color: rgba(244, 217, 160, 0.2) !important;
+        border-color: rgba(244, 217, 160, 0.25) !important;
         transform: translateX(3px) !important;
     }}
 
-    /* Sidebar Separator */
+    /* Active Navigation Item: Burnt Amber Fill, Champagne Gold Border */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"],
+    section[data-testid="stSidebar"] div.stButton > button[data-testid="baseButton-primary"] {{
+        background: #C8792C !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        border: 1.5px solid #F4D9A0 !important;
+        box-shadow: 0 4px 16px rgba(200, 121, 44, 0.4) !important;
+    }}
+
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {{
+        background: #D38234 !important;
+        border-color: #F8E5BA !important;
+    }}
+
+    /* Sidebar Collapse Button Styling */
+    [data-testid="stSidebarCollapseButton"] {{
+        color: var(--color-gold) !important;
+        background: transparent !important;
+    }}
+    [data-testid="stSidebarCollapseButton"]:hover {{
+        color: #FFFFFF !important;
+        background: rgba(91, 70, 50, 0.4) !important;
+    }}
+
+    /* Sidebar Divider */
     .sidebar-divider {{
         height: 1px;
         background: linear-gradient(90deg, transparent, rgba(244, 217, 160, 0.2), transparent);
-        margin: 14px 0;
+        margin: 16px 0;
     }}
 
-    /* Getting Started Card at Sidebar Bottom */
+    /* Getting Started Card inside Sidebar */
     .getting-started-card {{
         background: linear-gradient(145deg, #2D1F16, #231810);
         border: 1px solid rgba(244, 217, 160, 0.2);
         border-radius: 16px;
         padding: 16px;
-        margin-top: 1.5rem;
+        margin-top: 1.25rem;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-        position: relative;
     }}
 
     .getting-started-header {{
@@ -170,7 +203,7 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
     .getting-started-desc {{
         font-size: 0.8rem;
         color: var(--color-text-muted);
-        line-height: 1.4;
+        line-height: 1.45;
         margin-bottom: 12px;
     }}
 
@@ -200,36 +233,39 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         background: var(--color-gold);
     }}
 
-    div:has(.btn-stepper-trigger) button {{
-        width: 32px !important;
-        height: 32px !important;
-        min-height: 32px !important;
-        border-radius: 50% !important;
-        background: #F4D9A0 !important;
+    .circle-arrow-btn {{
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #F4D9A0;
         color: #20160F !important;
-        border: none !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-weight: bold !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        text-decoration: none !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        transition: all 0.2s ease;
     }}
 
-    div:has(.btn-stepper-trigger) button:hover {{
-        background: #FFFFFF !important;
-        transform: scale(1.08) !important;
+    .circle-arrow-btn:hover {{
+        background: #FFFFFF;
+        transform: scale(1.08);
     }}
 
-    /* Application Header */
+    /* =========================================================================
+       APPLICATION HEADER: CLEAN, PROPORTIONED, NO NUMERIC GARBAGE
+       ========================================================================= */
     .app-header-container {{
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.75rem 1rem 1.25rem 1rem;
+        padding: 0.5rem 0.5rem 1.25rem 0.5rem;
         border-bottom: 1px solid rgba(244, 217, 160, 0.12);
         margin-bottom: 1.5rem;
-        position: relative;
     }}
 
     .app-brand {{
@@ -244,7 +280,6 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--color-gold);
     }}
 
     .app-title-group {{
@@ -253,7 +288,7 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
     }}
 
     .app-title {{
-        font-family: 'Cinzel', 'Playfair Display', Georgia, serif;
+        font-family: 'Cinzel', Georgia, serif;
         font-size: 1.55rem;
         font-weight: 700;
         color: #FFFFFF;
@@ -275,7 +310,6 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         gap: 12px;
     }}
 
-    /* Header Pills and Badges */
     .header-pill {{
         display: inline-flex;
         align-items: center;
@@ -342,15 +376,16 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         box-shadow: 0 2px 8px rgba(200, 121, 44, 0.4);
     }}
 
-    /* Main Workspace Heading */
+    /* =========================================================================
+       WORKSPACE HERO
+       ========================================================================= */
     .workspace-hero {{
         position: relative;
         margin-bottom: 1.5rem;
-        padding-top: 0.25rem;
     }}
 
     .workspace-title {{
-        font-family: 'Playfair Display', 'Cinzel', Georgia, serif;
+        font-family: 'Playfair Display', Georgia, serif;
         font-size: 2.1rem;
         font-weight: 600;
         color: #F4D9A0;
@@ -367,12 +402,11 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         max-width: 850px;
     }}
 
-    /* Decorative warm glow in hero background */
     .workspace-hero-accent {{
         position: absolute;
         top: -20px;
         right: 40px;
-        width: 340px;
+        width: 320px;
         height: 120px;
         background: radial-gradient(ellipse at center, rgba(200, 121, 44, 0.25) 0%, rgba(91, 70, 50, 0.08) 50%, transparent 75%);
         pointer-events: none;
@@ -380,133 +414,84 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         filter: blur(20px);
     }}
 
-    /* Dashboard Cards */
-    .dash-card {{
-        background: linear-gradient(160deg, #302217 0%, #251911 100%);
-        border: 1px solid rgba(244, 217, 160, 0.16);
-        border-radius: 20px;
-        padding: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-        position: relative;
+    /* =========================================================================
+       CARDS & CONTAINERS (APPLIED VIA BORDER WRAPPER)
+       ========================================================================= */
+    div[data-testid="stVerticalBlockBorderWrapper"] {{
+        background: linear-gradient(160deg, #302217 0%, #251911 100%) !important;
+        border: 1px solid rgba(244, 217, 160, 0.16) !important;
+        border-radius: 20px !important;
+        padding: 20px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45) !important;
+        margin-bottom: 1rem !important;
         transition: border-color 0.25s ease, box-shadow 0.25s ease;
-        margin-bottom: 1rem;
     }}
 
-    .dash-card:hover {{
-        border-color: rgba(244, 217, 160, 0.28);
-        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {{
+        border-color: rgba(244, 217, 160, 0.28) !important;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55) !important;
     }}
 
-    /* Visual Preview Container */
-    .preview-box {{
-        background: #18110B;
-        border-radius: 14px;
-        overflow: hidden;
-        position: relative;
-        border: 1px solid rgba(244, 217, 160, 0.12);
-        min-height: 290px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 14px;
+    /* Responsive image container */
+    [data-testid="stImage"] img {{
+        border-radius: 14px !important;
+        border: 1px solid rgba(244, 217, 160, 0.14) !important;
+        object-fit: cover !important;
+        width: 100% !important;
+        display: block !important;
     }}
 
-    .preview-box img {{
-        width: 100%;
-        height: auto;
-        display: block;
-        border-radius: 12px;
-        object-fit: cover;
-    }}
-
+    /* Empty State in Preview */
     .preview-empty {{
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 50px 20px;
+        padding: 40px 20px;
         text-align: center;
-        color: var(--color-text-muted);
+        background: #18110B;
+        border: 1px dashed rgba(244, 217, 160, 0.2);
+        border-radius: 14px;
+        margin-bottom: 14px;
     }}
 
     .preview-empty-icon {{
-        font-size: 3rem;
-        margin-bottom: 12px;
-        color: rgba(244, 217, 160, 0.4);
+        font-size: 2.5rem;
+        margin-bottom: 8px;
+        color: rgba(244, 217, 160, 0.5);
     }}
 
-    .preview-expand-btn {{
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        background: rgba(20, 14, 10, 0.75);
-        border: 1px solid rgba(244, 217, 160, 0.3);
-        border-radius: 8px;
-        padding: 6px 8px;
-        color: var(--color-gold);
-        font-size: 0.9rem;
-        cursor: pointer;
-        backdrop-filter: blur(6px);
-        transition: all 0.2s ease;
-        z-index: 5;
-    }}
-
-    .preview-expand-btn:hover {{
-        background: rgba(40, 28, 19, 0.95);
-        transform: scale(1.05);
-    }}
-
-    /* Button Styling via :has triggers */
-    /* Primary Gold Button: "Open Camera" */
-    div:has(.btn-gold-trigger) button {{
+    /* Preview Controls Row Buttons */
+    .preview-btn-gold button {{
         background: #F4D9A0 !important;
         color: #20150D !important;
         font-weight: 600 !important;
-        font-size: 0.92rem !important;
         border: none !important;
         border-radius: 12px !important;
-        padding: 10px 18px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 8px !important;
         box-shadow: 0 4px 14px rgba(244, 217, 160, 0.25) !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        width: 100% !important;
     }}
-
-    div:has(.btn-gold-trigger) button:hover {{
+    .preview-btn-gold button:hover {{
         background: #FDEBC3 !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 6px 18px rgba(244, 217, 160, 0.4) !important;
     }}
 
-    /* Mocha Outline Secondary Buttons */
-    div:has(.btn-mocha-trigger) button {{
+    .preview-btn-mocha button {{
         background: #271A12 !important;
         color: #F4D9A0 !important;
         font-weight: 500 !important;
-        font-size: 0.92rem !important;
         border: 1px solid rgba(244, 217, 160, 0.28) !important;
         border-radius: 12px !important;
-        padding: 10px 18px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 8px !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        width: 100% !important;
     }}
-
-    div:has(.btn-mocha-trigger) button:hover {{
+    .preview-btn-mocha button:hover {{
         background: #36251A !important;
-        border-color: #F4D9A0 !important;
         color: #FFFFFF !important;
+        border-color: #F4D9A0 !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
     }}
 
-    /* Right Card: Analysis Results Header */
+    /* =========================================================================
+       ANALYSIS RESULTS HEADER & EXPANDERS
+       ========================================================================= */
     .results-header {{
         display: flex;
         align-items: center;
@@ -559,13 +544,50 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         border-radius: 9999px;
     }}
 
+    /* Streamlit Expander - Clean Borders, Crisp Chevrons, No Overlapping Text */
+    div[data-testid="stExpander"] {{
+        background: #241810 !important;
+        border: 1px solid rgba(244, 217, 160, 0.16) !important;
+        border-radius: 14px !important;
+        margin-bottom: 12px !important;
+        overflow: hidden !important;
+    }}
+
+    div[data-testid="stExpander"] > details {{
+        background: transparent !important;
+    }}
+
+    div[data-testid="stExpander"] > details > summary {{
+        color: #FFFFFF !important;
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+        padding: 12px 16px !important;
+        background: transparent !important;
+        cursor: pointer !important;
+    }}
+
+    div[data-testid="stExpander"] > details > summary:hover {{
+        color: var(--color-gold) !important;
+        background: rgba(91, 70, 50, 0.2) !important;
+    }}
+
+    div[data-testid="stExpander"] > details[open] > summary {{
+        border-bottom: 1px solid rgba(244, 217, 160, 0.08) !important;
+    }}
+
+    div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {{
+        padding: 12px 16px 16px 16px !important;
+        color: var(--color-text-secondary) !important;
+        font-size: 0.92rem !important;
+        line-height: 1.55 !important;
+    }}
+
     /* Object Detection Pills */
     .object-pills-container {{
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        padding-top: 4px;
-        padding-bottom: 4px;
+        padding: 4px 0;
     }}
 
     .object-pill {{
@@ -593,74 +615,31 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         font-size: 0.95rem;
     }}
 
-    /* Streamlit Expander Overrides to Match Reference Cards */
-    div[data-testid="stExpander"] {{
-        background: #241810 !important;
-        border: 1px solid rgba(244, 217, 160, 0.16) !important;
-        border-radius: 14px !important;
-        margin-bottom: 12px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-        overflow: hidden !important;
-    }}
-
-    div[data-testid="stExpander"] > details {{
-        background: transparent !important;
-    }}
-
-    div[data-testid="stExpander"] > details > summary {{
-        font-weight: 600 !important;
-        color: #FFFFFF !important;
-        font-size: 0.95rem !important;
-        padding: 12px 16px !important;
-        border-radius: 14px !important;
-    }}
-
-    div[data-testid="stExpander"] > details > summary:hover {{
-        color: var(--color-gold) !important;
-        background: rgba(91, 70, 50, 0.2) !important;
-    }}
-
-    div[data-testid="stExpander"] > details[open] > summary {{
-        border-bottom: 1px solid rgba(244, 217, 160, 0.08) !important;
-    }}
-
-    div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {{
-        padding: 14px 16px !important;
-        color: var(--color-text-secondary) !important;
-        font-size: 0.92rem !important;
-        line-height: 1.55 !important;
-    }}
-
     /* Voice Output Row */
     .voice-output-row {{
         display: flex;
         align-items: center;
         gap: 16px;
-        margin-top: 18px;
+        margin-top: 16px;
         padding-top: 14px;
         border-top: 1px solid rgba(244, 217, 160, 0.1);
     }}
 
-    /* Speak Results Button: Burnt Amber Fill */
-    div:has(.btn-speak-trigger) button {{
+    /* Speak Results Button: Burnt Amber */
+    .btn-speak-amber button {{
         background: #C8792C !important;
         color: #FFFFFF !important;
         font-weight: 600 !important;
         font-size: 0.95rem !important;
         border: none !important;
         border-radius: 12px !important;
-        padding: 12px 24px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 10px !important;
+        padding: 12px 22px !important;
         box-shadow: 0 4px 16px rgba(200, 121, 44, 0.35) !important;
         transition: all 0.2s ease !important;
-        white-space: nowrap !important;
         width: 100% !important;
     }}
 
-    div:has(.btn-speak-trigger) button:hover {{
+    .btn-speak-amber button:hover {{
         background: #DD8633 !important;
         transform: translateY(-2px) !important;
         box-shadow: 0 6px 20px rgba(200, 121, 44, 0.5) !important;
@@ -672,7 +651,7 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         background: rgba(244, 217, 160, 0.2);
     }}
 
-    /* Audio Waveform Visualization */
+    /* Audio Waveform */
     .waveform-visualizer {{
         width: 100%;
         display: flex;
@@ -691,48 +670,22 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         transition: height 0.15s ease;
     }}
 
-    /* Waveform animation keyframes when speaking */
     @keyframes wavePulse {{
-        0%, 100% {{
-            height: 6px;
-            opacity: 0.4;
-        }}
-        50% {{
-            height: 32px;
-            opacity: 1;
-        }}
+        0%, 100% {{ height: 6px; opacity: 0.4; }}
+        50% {{ height: 32px; opacity: 1; }}
     }}
 
     .waveform-animated .waveform-bar {{
         animation: wavePulse 0.8s ease-in-out infinite;
     }}
+    .waveform-animated .waveform-bar:nth-child(2n) {{ animation-delay: 0.15s; }}
+    .waveform-animated .waveform-bar:nth-child(3n) {{ animation-delay: 0.3s; }}
+    .waveform-animated .waveform-bar:nth-child(4n) {{ animation-delay: 0.45s; }}
+    .waveform-animated .waveform-bar:nth-child(5n) {{ animation-delay: 0.6s; }}
 
-    .waveform-animated .waveform-bar:nth-child(2n) {{
-        animation-delay: 0.15s;
-    }}
-
-    .waveform-animated .waveform-bar:nth-child(3n) {{
-        animation-delay: 0.3s;
-    }}
-
-    .waveform-animated .waveform-bar:nth-child(4n) {{
-        animation-delay: 0.45s;
-    }}
-
-    .waveform-animated .waveform-bar:nth-child(5n) {{
-        animation-delay: 0.6s;
-    }}
-
-    /* Bottom Question Bar Container */
-    .question-bar-card {{
-        background: linear-gradient(160deg, #302217 0%, #251911 100%);
-        border: 1px solid rgba(244, 217, 160, 0.18);
-        border-radius: 18px;
-        padding: 14px 20px;
-        margin-top: 1.5rem;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    }}
-
+    /* =========================================================================
+       BOTTOM QUESTION BAR
+       ========================================================================= */
     .question-label {{
         display: flex;
         align-items: center;
@@ -743,11 +696,6 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         white-space: nowrap;
     }}
 
-    /* Styling Streamlit text input to match reference rounded mocha field */
-    div[data-testid="stTextInput"] {{
-        margin-bottom: 0px !important;
-    }}
-
     div[data-testid="stTextInput"] > div > div > input {{
         background: #1B120B !important;
         border: 1px solid rgba(244, 217, 160, 0.22) !important;
@@ -756,7 +704,6 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         font-size: 0.95rem !important;
         padding: 10px 16px !important;
         height: 46px !important;
-        transition: all 0.2s ease !important;
     }}
 
     div[data-testid="stTextInput"] > div > div > input:focus {{
@@ -764,36 +711,27 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         box-shadow: 0 0 10px rgba(244, 217, 160, 0.25) !important;
     }}
 
-    div[data-testid="stTextInput"] > div > div > input::placeholder {{
-        color: rgba(244, 217, 160, 0.35) !important;
-        font-style: italic !important;
-    }}
-
-    /* Send Button: Square Burnt Amber with Airplane */
-    div:has(.btn-send-trigger) button {{
+    .btn-send-amber button {{
         background: #C8792C !important;
         color: #FFFFFF !important;
         border: none !important;
         border-radius: 12px !important;
-        width: 100% !important;
         height: 46px !important;
         min-height: 46px !important;
+        width: 100% !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         font-size: 1.25rem !important;
         box-shadow: 0 4px 14px rgba(200, 121, 44, 0.35) !important;
-        transition: all 0.2s ease !important;
         padding: 0 !important;
     }}
 
-    div:has(.btn-send-trigger) button:hover {{
+    .btn-send-amber button:hover {{
         background: #DD8633 !important;
         transform: scale(1.05) !important;
-        box-shadow: 0 6px 18px rgba(200, 121, 44, 0.5) !important;
     }}
 
-    /* Q&A Response Card */
     .vqa-answer-card {{
         background: #241810;
         border: 1px solid rgba(244, 217, 160, 0.22);
@@ -814,20 +752,6 @@ def get_global_css(font_scale: float = 1.0, high_contrast: bool = False) -> str:
         color: #FFFFFF;
         font-size: 1.05rem;
         font-weight: 500;
-    }}
-
-    /* Responsive adjustments */
-    @media (max-width: 900px) {{
-        .workspace-title {{
-            font-size: 1.6rem;
-        }}
-        .voice-output-row {{
-            flex-direction: column;
-            align-items: stretch;
-        }}
-        .voice-divider {{
-            display: none;
-        }}
     }}
 </style>
 """
