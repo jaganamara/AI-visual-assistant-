@@ -19,6 +19,8 @@ For in-depth architectural details, technology trade-offs, step-by-step executio
 
 | Document | Primary Focus | Target Audience |
 | :--- | :--- | :--- |
+| **[docs/IEEE_PROJECT_REPORT.md](docs/IEEE_PROJECT_REPORT.md)** | Full 6--7 page publication-grade IEEE format project research report | Academic Panels, Reviewers & Examiners |
+| **[docs/IEEE_PROJECT_REPORT.tex](docs/IEEE_PROJECT_REPORT.tex)** | Ready-to-compile IEEEtran LaTeX source code for Overleaf / PDF export | Authors, LaTeX Typesetters & Publishers |
 | **[docs/PROJECT_ARCHITECTURE.md](docs/PROJECT_ARCHITECTURE.md)** | Subsystem breakdowns, data flow contracts, coordinate geometry, and VRAM lifecycles | Software Architects & Evaluators |
 | **[docs/TECHNOLOGY_STACK.md](docs/TECHNOLOGY_STACK.md)** | Deep dive into PyTorch, YOLOv8, BLIP, EasyOCR, Whisper, pyttsx3, and trade-offs | Technical Reviewers & Developers |
 | **[docs/WORKFLOW_EXPLANATION.md](docs/WORKFLOW_EXPLANATION.md)** | Step-by-step trace of inference pipelines, sequence diagrams, and latency benchmarks | System Engineers & Testers |
